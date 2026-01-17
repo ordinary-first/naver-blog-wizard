@@ -431,3 +431,113 @@ body {
   outline: none;
   letter-spacing: -1.5px;
 }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .app-container header {
+    flex-wrap: nowrap;
+    margin: 0.5rem !important;
+    padding: 0.6rem 1rem !important;
+    gap: 0.5rem;
+  }
+
+  header h1 {
+    font-size: 1rem !important;
+  }
+
+  .tab-container {
+    width: 95%;
+    margin-bottom: 1rem !important;
+  }
+
+  .tab {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .cta-button {
+    width: 85% !important;
+    padding: 1rem 1.5rem !important;
+    font-size: 1rem !important;
+    bottom: 2rem !important;
+    gap: 0.6rem !important;
+  }
+
+  .session-item {
+    padding: 1rem !important;
+    gap: 0.8rem !important;
+    border-radius: 18px !important;
+  }
+
+  .session-item h3 {
+    font-size: 0.95rem !important;
+  }
+
+  .session-item p {
+    font-size: 0.8rem !important;
+  }
+
+  .post-title-input,
+  .seamless-title {
+    font-size: 1.8rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .editor-block {
+    padding: 1rem 0.5rem !important;
+  }
+
+  .bubble {
+    padding: 0.8rem 1rem !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+  }
+
+  .message {
+    margin-bottom: 1rem !important;
+    max-width: 92% !important;
+  }
+
+  /* Fixed toolbars on mobile */
+  .block-toolbar {
+    top: -25px !important;
+    right: 5px !important;
+    background: var(--bg-card);
+    padding: 4px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 480px) {
+  header span {
+    display: none;
+    /* Hide nickname on very small screens */
+  }
+
+  .session-item img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .session-item div[style*="minWidth: 48px"] {
+    min-width: 38px !important;
+    height: 38px !important;
+  }
+
+  .mobile-hide-text {
+    display: none !important;
+  }
+
+  .seamless-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 1rem !important;
+    padding: 0.5rem 0 !important;
+  }
+
+  /* Compact tags on mobile */
+  .button-hover[style*="rgba(3, 199, 90, 0.1)"] {
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+  }
+}

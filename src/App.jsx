@@ -5,7 +5,7 @@ import {
   BookOpen, ChevronLeft, Calendar, Eye, Plus, MessageCircle,
   FileText, RotateCcw, RotateCw, MoreVertical, GripVertical, Edit3,
   Type, Quote, Minus, MapPin, Link as LinkIcon, Camera, Music, Video,
-  Monitor, Tablet, Smartphone
+  Monitor, Tablet, Smartphone, LogOut
 } from 'lucide-react';
 import './index.css';
 
@@ -21,6 +21,7 @@ const App = () => {
   const [editingBlockId, setEditingBlockId] = useState(null);
   const [previewMode, setPreviewMode] = useState('pc'); // 'pc' | 'tablet' | 'mobile'
   const [aiResponsesEnabled, setAiResponsesEnabled] = useState(true);
+  const [isToolbarOpen, setIsToolbarOpen] = useState(false); // Floating toolbar toggle
 
   // App Global States
   const [showSettings, setShowSettings] = useState(false);
@@ -416,12 +417,12 @@ const App = () => {
     return (
       <div className="reveal" style={{ padding: '2rem 1.5rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Compact Header */}
-        <div style={{ marginBottom: '3rem', textAlign: 'center', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '0.8rem' }}>
-            <img src={naverUser.profileImage} style={{ width: '60px', height: '60px', borderRadius: '50%', border: '3px solid var(--naver-green)', boxShadow: '0 0 15px rgba(3, 199, 90, 0.2)' }} alt="profile" />
+        <div style={{ marginBottom: '2.5rem', textAlign: 'center', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', marginBottom: '0.5rem' }}>
+            <img src={naverUser.profileImage} style={{ width: 'clamp(50px, 15vw, 60px)', height: 'clamp(50px, 15vw, 60px)', borderRadius: '50%', border: '3px solid var(--naver-green)', boxShadow: '0 0 15px rgba(3, 199, 90, 0.2)' }} alt="profile" />
             <div style={{ textAlign: 'left' }}>
-              <h1 style={{ fontSize: '1.8rem', fontWeight: '950', letterSpacing: '-1px', margin: 0, lineHeight: 1 }}>안녕하세요,</h1>
-              <h1 className="premium-gradient" style={{ fontSize: '1.8rem', fontWeight: '950', letterSpacing: '-1px', margin: 0, lineHeight: 1 }}>{naverUser.blogTitle}님!</h1>
+              <h1 style={{ fontSize: 'clamp(1.4rem, 5vw, 1.8rem)', fontWeight: '950', letterSpacing: '-1px', margin: 0, lineHeight: 1 }}>안녕하세요,</h1>
+              <h1 className="premium-gradient" style={{ fontSize: 'clamp(1.4rem, 5vw, 1.8rem)', fontWeight: '950', letterSpacing: '-1px', margin: 0, lineHeight: 1 }}>{naverUser.blogTitle}님!</h1>
             </div>
           </div>
         </div>
@@ -567,20 +568,26 @@ const App = () => {
           <div style={{ background: 'var(--naver-green)', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={18} fill="white" /></div>
           <div><h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1.2rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1></div>
         </div>
-        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
           {naverUser && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '24px' }}>
               <img src={naverUser.profileImage} style={{ width: '24px', height: '24px', borderRadius: '50%' }} alt="profile" />
-              <span style={{ fontSize: '0.85rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
+              <span className="mobile-hide-text" style={{ fontSize: '0.85rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
               <button
                 onClick={handleNaverLogout}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: '0.7rem', cursor: 'pointer', padding: '0 4px' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: '0.7rem', cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center', gap: '4px' }}
                 title="로그아웃"
-              >로그아웃</button>
+              >
+                <LogOut size={16} /> <span className="mobile-hide-text">로그아웃</span>
+              </button>
             </div>
           )}
-          {view === 'editor' && <button className="glass button-hover" onClick={() => setView('home')} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}><ChevronLeft size={18} /> 홈으로</button>}
-          <button className="glass button-hover" onClick={() => setShowSettings(true)} style={{ padding: '0.5rem', color: 'var(--text-dim)' }}><Settings size={20} /></button>
+          {view === 'editor' && (
+            <button className="glass button-hover" onClick={() => setView('home')} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}>
+              <ChevronLeft size={18} /> <span className="mobile-hide-text">홈으로</span>
+            </button>
+          )}
+          <button className="glass button-hover" onClick={() => setShowSettings(true)} style={{ padding: '0.5rem', color: 'var(--text-dim)', borderRadius: '50%' }}><Settings size={20} /></button>
         </div>
       </header>
 
@@ -596,12 +603,12 @@ const App = () => {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '0 1rem' }}>
                   <div className="chat-window" style={{ maxWidth: '750px', margin: '0 auto', width: '100%', paddingBottom: '160px' }}>
-                    <div className="glass-heavy reveal" style={{ padding: '1.2rem 1.5rem', marginBottom: '2rem', display: 'flex', gap: '1rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <div className="floating-action" style={{ background: aiResponsesEnabled ? 'var(--naver-green)' : 'var(--text-muted)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}><Sparkles size={20} color="white" /></div>
-                        <div>
-                          <div style={{ fontWeight: '800', fontSize: '0.95rem' }}>AI 위저드 {aiResponsesEnabled ? '대화 중' : '휴식 중'}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{aiResponsesEnabled ? '사진을 보내거나 일상을 들려주세요.' : 'AI 답변 없이 오직 기록에만 집중합니다.'}</div>
+                    <div className="glass-heavy reveal" style={{ padding: '0.8rem 1.2rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', minWidth: 0 }}>
+                        <div className="floating-action" style={{ background: aiResponsesEnabled ? 'var(--naver-green)' : 'var(--text-muted)', width: '36px', height: '36px', minWidth: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}><Sparkles size={18} color="white" /></div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: '800', fontSize: '0.9rem' }}>AI 위저드 {aiResponsesEnabled ? '대화 중' : '휴식 중'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{aiResponsesEnabled ? '사진을 보내거나 일상을 들려주세요.' : 'AI 답변 없이 오직 기록에만 집중합니다.'}</div>
                         </div>
                       </div>
                       <div
@@ -646,10 +653,10 @@ const App = () => {
                 </div>
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, var(--bg-dark) 80%, transparent)', padding: '1.5rem 1rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
                   {!isGenerating && currentSession?.messages.filter(m => m.sender === 'user').length > 0 && <button className="button-hover reveal cta-style" onClick={generateBlogPost} style={{ background: 'var(--naver-green)', color: 'white', padding: '1rem 2.5rem', borderRadius: '50px', fontWeight: '900', border: 'none', display: 'flex', alignItems: 'center', gap: '0.8rem' }}><Sparkles size={20} /> AI 블로그 포스팅 생성</button>}
-                  <div className="glass-heavy input-glow" style={{ maxWidth: '750px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: '0.6rem 1rem', gap: '0.8rem', border: '1px solid var(--glass-border)' }}>
-                    <label className="button-hover" style={{ padding: '0.5rem', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex' }}><ImageIcon size={22} /><input type="file" multiple hidden onChange={handleImageUpload} /></label>
-                    <input type="text" placeholder="오늘 무엇을 하셨나요? AI가 블로그 글로 만들어드릴게요." style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', padding: '0.6rem', fontSize: '1rem', outline: 'none' }} value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && (handleSendMessage(inputText), setInputText(''))} />
-                    <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: '0.7rem', borderRadius: '50%', border: 'none', display: 'flex' }} onClick={() => { handleSendMessage(inputText); setInputText(''); }} disabled={!inputText.trim()}><Send size={20} /></button>
+                  <div className="glass-heavy input-glow" style={{ maxWidth: '750px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: window.innerWidth < 600 ? '0.4rem 0.5rem 0.4rem 0.8rem' : '0.6rem 1rem', gap: window.innerWidth < 600 ? '0.5rem' : '0.8rem', border: '1px solid var(--glass-border)' }}>
+                    <label className="button-hover" style={{ padding: '0.5rem', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', flexShrink: 0 }}><ImageIcon size={22} /><input type="file" multiple hidden onChange={handleImageUpload} /></label>
+                    <input type="text" placeholder={window.innerWidth < 600 ? "오늘 무엇을 하셨나요?" : "오늘 무엇을 하셨나요? AI가 블로그 글로 만들어드릴게요."} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: 'white', padding: '0.6rem 0', fontSize: '1rem', outline: 'none' }} value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && (handleSendMessage(inputText), setInputText(''))} />
+                    <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: '0.7rem', borderRadius: '50%', border: 'none', display: 'flex', flexShrink: 0 }} onClick={() => { handleSendMessage(inputText); setInputText(''); }} disabled={!inputText.trim()}><Send size={20} /></button>
                   </div>
                 </div>
               </div>
@@ -663,25 +670,28 @@ const App = () => {
                     padding: previewMode === 'mobile' ? '0 1rem' : '0 2rem',
                     transition: 'width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', marginTop: '1rem' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="button-hover glass" onClick={undo} disabled={historyIndex <= 0} style={{ padding: '0.6rem', opacity: historyIndex <= 0 ? 0.2 : 0.8, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <RotateCcw size={20} color="white" />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', marginTop: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="button-hover glass" onClick={undo} disabled={historyIndex <= 0} style={{ padding: '0.5rem', opacity: historyIndex <= 0 ? 0.2 : 0.8, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>
+                          <RotateCcw size={18} color="white" />
                         </button>
-                        <button className="button-hover glass" onClick={redo} disabled={historyIndex >= history.length - 1} style={{ padding: '0.6rem', opacity: historyIndex >= history.length - 1 ? 0.2 : 0.8, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <RotateCw size={20} color="white" />
+                        <button className="button-hover glass" onClick={redo} disabled={historyIndex >= history.length - 1} style={{ padding: '0.5rem', opacity: historyIndex >= history.length - 1 ? 0.2 : 0.8, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>
+                          <RotateCw size={18} color="white" />
                         </button>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.8rem' }}>
-                        <button className="button-hover glass" onClick={handleCopyForNaver} style={{ padding: '0.8rem 1.5rem', borderRadius: '16px', fontWeight: '800', border: 'none', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Copy size={18} />
-                          블로그 복사
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="button-hover glass" onClick={handleCopyForNaver} style={{ padding: '0.6rem 1rem', borderRadius: '12px', fontWeight: '800', border: 'none', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Copy size={16} />
+                          <span className="mobile-hide-text">복사</span>
                         </button>
-                        <button className="button-hover" onClick={publishSession} style={{ background: 'var(--naver-green)', color: 'white', padding: '0.8rem 2rem', borderRadius: '16px', fontWeight: '900', border: 'none', boxShadow: '0 10px 20px rgba(3, 199, 90, 0.2)' }}>발행하기</button>
+                        <button className="button-hover" onClick={publishSession} style={{ background: 'var(--naver-green)', color: 'white', padding: '0.6rem 1rem', borderRadius: '12px', fontWeight: '900', border: 'none', boxShadow: '0 8px 16px rgba(3, 199, 90, 0.2)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <BookOpen size={16} />
+                          <span className="mobile-hide-text">발행</span>
+                        </button>
                       </div>
                     </div>
 
-                    <input className="seamless-title" value={currentSession?.post.title} onChange={(e) => setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, post: { ...s.post, title: e.target.value } } : s))} placeholder="제목을 입력하세요" style={{ fontSize: previewMode === 'mobile' ? '1.8rem' : previewMode === 'tablet' ? '2.4rem' : '2.8rem' }} />
+                    <input className="seamless-title" value={currentSession?.post.title} onChange={(e) => setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, post: { ...s.post, title: e.target.value } } : s))} placeholder="제목을 입력하세요" style={{ fontSize: 'clamp(1.4rem, 4vw, 2.8rem)', marginBottom: '1.5rem' }} />
 
                     {isGenerating ? <div style={{ textAlign: 'center', padding: '6rem 0' }}><div className="floating-action" style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🪄</div><p style={{ color: 'var(--text-dim)' }}>AI가 블로그 거장을 위한 글을 빚고 있습니다...</p></div> :
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -742,69 +752,112 @@ const App = () => {
                   </div>
                 </div>
 
-                {/* Bottom Floating Menu like Naver */}
-                <div className="glass-heavy reveal" style={{
-                  position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)',
-                  display: 'flex', padding: '0.8rem', borderRadius: '24px', gap: '1rem',
-                  boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
-                  zIndex: 2000
+                {/* Collapsible Floating Action Button (FAB) */}
+                <div style={{
+                  position: 'fixed',
+                  bottom: '140px',
+                  right: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  zIndex: 2000,
                 }}>
-                  <button className="button-hover glass" onClick={() => addBlock('text')} style={{ padding: '0.8rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'white', border: 'none' }}>
-                    <Type size={18} /><span style={{ fontSize: '0.6rem' }}>텍스트</span>
-                  </button>
-                  <button className="button-hover glass" onClick={() => addBlock('image')} style={{ padding: '0.8rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'white', border: 'none' }}>
-                    <Camera size={18} /><span style={{ fontSize: '0.6rem' }}>사진</span>
-                  </button>
-                  <button className="button-hover glass" onClick={() => addBlock('quote')} style={{ padding: '0.8rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'white', border: 'none' }}>
-                    <Quote size={18} /><span style={{ fontSize: '0.6rem' }}>인용구</span>
-                  </button>
-                  <button className="button-hover glass" onClick={() => addBlock('divider')} style={{ padding: '0.8rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'white', border: 'none' }}>
-                    <Minus size={18} /><span style={{ fontSize: '0.6rem' }}>구분선</span>
-                  </button>
-                  <button className="button-hover glass" style={{ padding: '0.8rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', border: 'none' }}>
-                    <MapPin size={18} /><span style={{ fontSize: '0.6rem' }}>장소</span>
-                  </button>
-                  <div style={{ width: '1px', background: 'var(--glass-border)', margin: '0.5rem 0' }} />
-                  <button className="button-hover" style={{ padding: '0.8rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'var(--naver-green)', background: 'rgba(3, 199, 90, 0.1)', border: 'none' }}>
-                    <Sparkles size={18} /><span style={{ fontSize: '0.6rem' }}>AI글감</span>
+                  {/* Expanded Toolbar */}
+                  <div style={{
+                    display: isToolbarOpen ? 'flex' : 'none',
+                    gap: '0.4rem',
+                    padding: '0.5rem',
+                    borderRadius: '20px',
+                    background: 'rgba(20, 24, 32, 0.95)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    animation: isToolbarOpen ? 'slideInRight 0.3s ease-out' : 'none',
+                  }}>
+                    {[
+                      { icon: Type, label: '텍스트', type: 'text' },
+                      { icon: Camera, label: '사진', type: 'image' },
+                      { icon: Quote, label: '인용구', type: 'quote' },
+                      { icon: Minus, label: '구분선', type: 'divider' },
+                    ].map((item, idx) => (
+                      <button
+                        key={idx}
+                        className="button-hover glass"
+                        onClick={() => { addBlock(item.type); setIsToolbarOpen(false); }}
+                        style={{ padding: '0.6rem', borderRadius: '12px', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title={item.label}
+                      >
+                        <item.icon size={18} />
+                      </button>
+                    ))}
+                    <button
+                      className="button-hover"
+                      style={{ padding: '0.6rem', borderRadius: '12px', color: 'var(--naver-green)', background: 'rgba(3, 199, 90, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="AI 글감"
+                    >
+                      <Sparkles size={18} />
+                    </button>
+                  </div>
+
+                  {/* FAB Toggle Button */}
+                  <button
+                    className="button-hover"
+                    onClick={() => setIsToolbarOpen(!isToolbarOpen)}
+                    style={{
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '50%',
+                      background: isToolbarOpen ? 'var(--glass-heavy)' : 'var(--naver-green)',
+                      color: 'white',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                      transition: 'all 0.3s ease',
+                      transform: isToolbarOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+                    }}
+                  >
+                    <Plus size={24} />
                   </button>
                 </div>
 
-                {/* View Mode Toggle */}
-                <div className="glass-heavy reveal" style={{
-                  position: 'fixed', bottom: '30px', right: '30px',
-                  display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px', borderRadius: '16px',
-                  zIndex: 2000
-                }}>
-                  <button onClick={() => setPreviewMode('pc')} className="button-hover" style={{
-                    padding: '10px', borderRadius: '12px', border: 'none',
-                    background: previewMode === 'pc' ? 'var(--naver-green)' : 'transparent',
-                    color: previewMode === 'pc' ? 'white' : 'var(--text-dim)'
-                  }} title="PC 화면">
-                    <Monitor size={20} />
-                  </button>
-                  <button onClick={() => setPreviewMode('tablet')} className="button-hover" style={{
-                    padding: '10px', borderRadius: '12px', border: 'none',
-                    background: previewMode === 'tablet' ? 'var(--naver-green)' : 'transparent',
-                    color: previewMode === 'tablet' ? 'white' : 'var(--text-dim)'
-                  }} title="태블릿 화면">
-                    <Tablet size={20} />
-                  </button>
-                  <button onClick={() => setPreviewMode('mobile')} className="button-hover" style={{
-                    padding: '10px', borderRadius: '12px', border: 'none',
-                    background: previewMode === 'mobile' ? 'var(--naver-green)' : 'transparent',
-                    color: previewMode === 'mobile' ? 'white' : 'var(--text-dim)'
-                  }} title="모바일 화면">
-                    <Smartphone size={20} />
-                  </button>
-                </div>
+                {/* View Mode Toggle - Hidden on small physical screens */}
+                {window.innerWidth >= 1024 && (
+                  <div className="glass-heavy reveal" style={{
+                    position: 'fixed', bottom: '30px', right: '30px',
+                    display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px', borderRadius: '16px',
+                    zIndex: 2000
+                  }}>
+                    <button onClick={() => setPreviewMode('pc')} className="button-hover" style={{
+                      padding: '10px', borderRadius: '12px', border: 'none',
+                      background: previewMode === 'pc' ? 'var(--naver-green)' : 'transparent',
+                      color: previewMode === 'pc' ? 'white' : 'var(--text-dim)'
+                    }} title="PC 화면">
+                      <Monitor size={20} />
+                    </button>
+                    <button onClick={() => setPreviewMode('tablet')} className="button-hover" style={{
+                      padding: '10px', borderRadius: '12px', border: 'none',
+                      background: previewMode === 'tablet' ? 'var(--naver-green)' : 'transparent',
+                      color: previewMode === 'tablet' ? 'white' : 'var(--text-dim)'
+                    }} title="태블릿 화면">
+                      <Tablet size={20} />
+                    </button>
+                    <button onClick={() => setPreviewMode('mobile')} className="button-hover" style={{
+                      padding: '10px', borderRadius: '12px', border: 'none',
+                      background: previewMode === 'mobile' ? 'var(--naver-green)' : 'transparent',
+                      color: previewMode === 'mobile' ? 'white' : 'var(--text-dim)'
+                    }} title="모바일 화면">
+                      <Smartphone size={20} />
+                    </button>
+                  </div>
+                )}
 
                 {/* AI Edit Input Bar */}
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, var(--bg-dark) 85%, transparent)', padding: '2rem', display: 'flex', justifyContent: 'center', zIndex: 10, pointerEvents: 'none' }}>
-                  <div className="glass-heavy input-glow" style={{ pointerEvents: 'auto', maxWidth: '800px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: '0.7rem 1.2rem', gap: '1rem', border: editingBlockId ? '2px solid var(--naver-green)' : '1px solid var(--glass-border)' }}>
-                    <Sparkles size={22} color="var(--naver-green)" />
-                    <input ref={postInputRef} type="text" placeholder={editingBlockId ? "선택한 문단을 어떻게 고칠까요?" : "수정 사항을 입력하세요."} style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', padding: '0.6rem', fontSize: '1rem', outline: 'none' }} value={postEditInput} onChange={(e) => setPostEditInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handlePostEditRequest()} />
-                    <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: '0.7rem 1.5rem', borderRadius: '30px', border: 'none', fontWeight: '900' }} onClick={() => handlePostEditRequest()} disabled={!postEditInput.trim() || isGenerating}>AI 수정</button>
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, var(--bg-dark) 85%, transparent)', padding: window.innerWidth < 768 ? '1rem' : '2rem', display: 'flex', justifyContent: 'center', zIndex: 10, pointerEvents: 'none' }}>
+                  <div className="glass-heavy input-glow" style={{ pointerEvents: 'auto', maxWidth: '800px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: window.innerWidth < 768 ? '0.4rem 0.8rem' : '0.7rem 1.2rem', gap: window.innerWidth < 768 ? '0.5rem' : '1rem', border: editingBlockId ? '2px solid var(--naver-green)' : '1px solid var(--glass-border)' }}>
+                    <Sparkles size={window.innerWidth < 768 ? 18 : 22} color="var(--naver-green)" />
+                    <input ref={postInputRef} type="text" placeholder={editingBlockId ? (window.innerWidth < 600 ? "어떻게 고칠까요?" : "선택한 문단을 어떻게 고칠까요?") : "수정 사항 입력"} style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', padding: '0.6rem', fontSize: window.innerWidth < 600 ? '0.9rem' : '1rem', outline: 'none' }} value={postEditInput} onChange={(e) => setPostEditInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handlePostEditRequest()} />
+                    <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: window.innerWidth < 768 ? '0.6rem 1rem' : '0.7rem 1.5rem', borderRadius: '30px', border: 'none', fontWeight: '900', fontSize: window.innerWidth < 600 ? '0.8rem' : '1rem' }} onClick={() => handlePostEditRequest()} disabled={!postEditInput.trim() || isGenerating}>수정</button>
                   </div>
                 </div>
               </div>
