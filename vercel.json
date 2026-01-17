@@ -1,0 +1,20 @@
+{
+    "rewrites": [
+        {
+            "source": "/v1/:path*",
+            "destination": "https://openapi.naver.com/v1/:path*"
+        },
+        {
+            "source": "/oauth2.0/:path*",
+            "destination": "https://nid.naver.com/oauth2.0/:path*"
+        },
+        {
+            "source": "/map-place/:path*",
+            "destination": "https://naveropenapi.apigw.ntruss.com/:path*"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/"
+        }
+    ]
+}
