@@ -287,12 +287,39 @@ const App = () => {
         }
       });
       const newPost = { title: data.title, content: finalContent, tags: data.tags };
-      setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, post: newPost, title: data.title } : s));
+
+      // Safely update sessions with storage quota handling
+      const updatedSessions = sessions.map(s => s.id === currentSessionId ? { ...s, post: newPost, title: data.title } : s);
+
+      // Check localStorage quota before saving
+      try {
+        const testData = JSON.stringify(updatedSessions);
+        if (testData.length > 4 * 1024 * 1024) { // 4MB safety limit
+          console.warn('Session data too large, clearing old images');
+          // Keep only the last 3 images per session
+          updatedSessions.forEach(session => {
+            const images = session.messages.filter(m => m.type === 'image');
+            if (images.length > 3) {
+              const toRemove = images.slice(0, images.length - 3);
+              session.messages = session.messages.filter(m => !toRemove.includes(m));
+            }
+          });
+        }
+        localStorage.setItem('wizard_sessions', JSON.stringify(updatedSessions));
+      } catch (storageErr) {
+        console.error('Storage quota exceeded:', storageErr);
+        // Continue without saving - data still in memory
+      }
+
+      setSessions(updatedSessions);
       setHasNewPostContent(true);
       pushToHistory(newPost);
       const systemMsg = { id: Date.now() + 2, sender: 'ai', type: 'text', content: '✨ 블로그 글이 생성되었습니다! 상단의 [글] 탭에서 확인해보세요.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
       setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, systemMsg] } : s));
-    } catch (err) { console.error(err); alert('오류 발생'); } finally { setIsGenerating(false); }
+    } catch (err) {
+      console.error('Blog generation error:', err);
+      alert(`블로그 생성 오류: ${err.message || '알 수 없는 오류가 발생했습니다.'}`);
+    } finally { setIsGenerating(false); }
   };
 
   // --- Blog Generation ---
