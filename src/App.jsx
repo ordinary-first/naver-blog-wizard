@@ -46,6 +46,11 @@ const App = () => {
   const chatEndRef = useRef(null);
   const postInputRef = useRef(null);
 
+  // Style Cloning State
+  const [styleRefs, setStyleRefs] = useState(['', '', '']);
+  const [userStylePrompt, setUserStylePrompt] = useState('');
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
+
   // Load Initial Data
   useEffect(() => {
     const savedSettings = localStorage.getItem('wizard_settings');
@@ -53,6 +58,13 @@ const App = () => {
 
     const savedNaverUser = localStorage.getItem('naver_user');
     if (savedNaverUser) setNaverUser(JSON.parse(savedNaverUser));
+
+    // Load saved style
+    const savedStyleRefs = localStorage.getItem('wizard_style_refs');
+    if (savedStyleRefs) setStyleRefs(JSON.parse(savedStyleRefs));
+
+    const savedStylePrompt = localStorage.getItem('wizard_user_style');
+    if (savedStylePrompt) setUserStylePrompt(savedStylePrompt);
 
     const savedSessions = localStorage.getItem('wizard_sessions');
     if (savedSessions) {
@@ -289,8 +301,51 @@ const App = () => {
     }
   };
 
-  // --- Blog Generation ---
-  // --- Blog Generation ---
+  // --- Style Analysis Logic ---
+  const analyzeUserStyle = async () => {
+    if (!apiKeys.gemini) { alert('API 키가 필요합니다.'); return; }
+    const validRefs = styleRefs.filter(text => text.trim().length > 50);
+    if (validRefs.length === 0) { alert('분석할 대표글을 최소 1개 이상 입력해주세요 (각 50자 이상).'); return; }
+
+    setIsAnalyzingStyle(true);
+    try {
+      const genAI = new GoogleGenerativeAI(apiKeys.gemini);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+      const prompt = `
+당신은 최고의 문체 분석가입니다. 다음 텍스트들은 사용자가 직접 쓴 블로그 글입니다.
+이 사용자의 **고유한 글쓰기 스타일(Tone & Manner)**을 심층 분석해서 '스타일 가이드'를 작성해주세요.
+
+[분석 포인트]
+1. **어조**: (예: ~해요, ~합니다, ~했음 등 종결어미의 특징)
+2. **감정 표현**: (담백한지, 감성적인지, 유머러스한지)
+3. **포맷**: (줄바꿈 간격, 문단 길이, 이모지 사용 빈도 및 종류)
+4. **특이사항**: (자주 쓰는 단어, 강조 방식)
+
+[입력 텍스트]
+${validRefs.map((t, i) => `--- 글 #${i + 1} ---\n${t}`).join('\n\n')}
+
+[출력 형식]
+다른 AI가 이 가이드만 보고도 사용자의 스타일을 완벽히 모사할 수 있도록 구체적인 지시문을 작성하세요. (단, 분석 결과만 출력하고 부가적인 말은 하지 마세요)`;
+
+      const result = await model.generateContent(prompt);
+      const styleGuide = result.response.text();
+
+      setUserStylePrompt(styleGuide);
+      localStorage.setItem('wizard_user_style', styleGuide);
+      localStorage.setItem('wizard_style_refs', JSON.stringify(styleRefs));
+
+      alert('✅ 스타일 분석이 완료되었습니다! 이제부터 AI가 회원님의 말투를 따라합니다.');
+    } catch (err) {
+      console.error('Style analysis failed:', err);
+      alert('스타일 분석 중 오류가 발생했습니다.');
+    } finally {
+      setIsAnalyzingStyle(false);
+    }
+  };
+
+  
+// --- Blog Generation ---
   const generateBlogPost = async () => {
     if (!apiKeys.gemini) { alert('설정에서 API 키를 등록해주세요!'); setShowSettings(true); return; }
     setIsGenerating(true);
@@ -305,6 +360,11 @@ const App = () => {
 가장 중요한 원칙은 **"진실성 있는 경험(Authenticity)"**입니다.
 AI가 쓴 티가 나는 "정보성 어투(~에 대해 알아봅시다)"나 "기계적인 텐션"은 절대 금지입니다. 🚫
 
+${userStylePrompt ? `
+[⭐⭐⭐ 특별 지시: 사용자 스타일 적용 ⭐⭐⭐]
+다음은 사용자의 평소 글쓰기 스타일입니다. 이 스타일을 **반드시** 따르세요.
+${userStylePrompt}
+` : `
 [작성 원칙]
 1. **나의 이야기로 쓰세요**: 제 3자가 설명하는 글이 아니라, 내가 직접 겪고 느낀 것처럼 **1인칭 시점**("저", "제가")으로 쓰세요.
 2. **팩트에 감성을 더하세요**: 
@@ -312,6 +372,7 @@ AI가 쓴 티가 나는 "정보성 어투(~에 대해 알아봅시다)"나 "기�
    - ✖️ "최고급 원두의 황홀한 맛이 혀끝을 감쌌습니다." (없는 사실/과장 금지)
    - ⭕️ "오랜만에 따뜻한 커피 한 잔 마시니 마음까지 차분해지는 기분이었어요. ☕️" (팩트+자연스러운 감정)
 3. **간단한 메모도 정성스럽게**: 사용자가 "친구랑 밥 먹음"이라고만 해도, "좋은 사람과 함께하는 한 끼는 언제나 즐겁죠."처럼 문맥을 부드럽게 이어주세요.
+`}
 4. **구성**:
    - 억지스러운 서론/결론 배제.
    - 자연스러운 흐름으로 이어지게.
@@ -1011,6 +1072,76 @@ ${chatSummary}`;
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>Gemini API Key</label>
               <input type="password" className="glass" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', padding: '1rem', color: 'white' }} value={apiKeys.gemini} onChange={(e) => setApiKeys({ ...apiKeys, gemini: e.target.value })} placeholder="AI 글 생성을 위해 필요합니다." />
+            </div>
+
+            <div style={{ padding: '1.5rem 0', borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>🎨 내 스타일 학습시키기</h3>
+                {userStylePrompt && <span style={{ fontSize: '0.8rem', color: 'var(--naver-green)', background: 'rgba(3,199,90,0.1)', padding: '2px 8px', borderRadius: '4px' }}>학습 완료됨</span>}
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '1rem' }}>평소 작성하신 '대표 블로그 글'을 1~3개 붙여넣어주세요.<br />AI가 회원님의 말투와 문체를 완벽하게 분석합니다.</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
+                {[0, 1, 2].map(idx => (
+                  <textarea
+                    key={idx}
+                    className="glass"
+                    value={styleRefs[idx]}
+                    onChange={(e) => {
+                      const newRefs = [...styleRefs];
+                      newRefs[idx] = e.target.value;
+                      setStyleRefs(newRefs);
+                    }}
+                    placeholder={`대표글 #${idx + 1} 본문 붙여넣기...`}
+                    rows={4}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', padding: '0.8rem', color: 'white', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem', resize: 'vertical' }}
+                  />
+                ))}
+              </div>
+
+              <button
+                onClick={analyzeUserStyle}
+                className="button-hover"
+                disabled={isAnalyzingStyle || !apiKeys.gemini}
+                style={{ width: '100%', marginTop: '1rem', padding: '0.8rem', background: userStylePrompt ? 'transparent' : 'rgba(255,255,255,0.1)', border: '1px solid var(--naver-green)', color: 'var(--naver-green)', fontWeight: '700', borderRadius: '10px' }}
+              >
+                {isAnalyzingStyle ? '분석 중...' : userStylePrompt ? '🔄 스타일 다시 분석하기' : '✨ 내 스타일 분석 시작'}
+              </button>
+            </div>
+
+            <div style={{ padding: '1.5rem 0', borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>🎨 내 스타일 학습시키기</h3>
+                {userStylePrompt && <span style={{ fontSize: '0.8rem', color: 'var(--naver-green)', background: 'rgba(3,199,90,0.1)', padding: '2px 8px', borderRadius: '4px' }}>학습 완료됨</span>}
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '1rem' }}>평소 작성하신 '대표 블로그 글'을 1~3개 붙여넣어주세요.<br />AI가 회원님의 말투와 문체를 완벽하게 분석합니다.</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
+                {[0, 1, 2].map(idx => (
+                  <textarea
+                    key={idx}
+                    className="glass"
+                    value={styleRefs[idx]}
+                    onChange={(e) => {
+                      const newRefs = [...styleRefs];
+                      newRefs[idx] = e.target.value;
+                      setStyleRefs(newRefs);
+                    }}
+                    placeholder={`대표글 #${idx + 1} 본문 붙여넣기...`}
+                    rows={4}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', padding: '0.8rem', color: 'white', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem', resize: 'vertical' }}
+                  />
+                ))}
+              </div>
+
+              <button
+                onClick={analyzeUserStyle}
+                className="button-hover"
+                disabled={isAnalyzingStyle || !apiKeys.gemini}
+                style={{ width: '100%', marginTop: '1rem', padding: '0.8rem', background: userStylePrompt ? 'transparent' : 'rgba(255,255,255,0.1)', border: '1px solid var(--naver-green)', color: 'var(--naver-green)', fontWeight: '700', borderRadius: '10px' }}
+              >
+                {isAnalyzingStyle ? '분석 중...' : userStylePrompt ? '🔄 스타일 다시 분석하기' : '✨ 내 스타일 분석 시작'}
+              </button>
             </div>
 
             <div style={{ marginTop: '3rem', display: 'flex', gap: '1.2rem' }}>
