@@ -76,10 +76,37 @@ const App = () => {
     }
   }, []);
 
-  // Save Sessions whenever they change
+  // Save Sessions whenever they change with Quota Management
   useEffect(() => {
     if (sessions.length > 0) {
-      localStorage.setItem('wizard_sessions', JSON.stringify(sessions));
+      try {
+        localStorage.setItem('wizard_sessions', JSON.stringify(sessions));
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+          console.warn('Storage Check: Quota exceeded. Attempting cleanup...');
+
+          // Strategy 1: Remove images from old sessions (keep text)
+          const optimizedSessions = sessions.map((s, idx) => {
+            // Keep the most recent 3 sessions intact
+            if (idx < 3) return s;
+
+            // For older sessions, remove base64 images from messages
+            const cleanMessages = s.messages.map(m =>
+              m.type === 'image' ? { ...m, content: '' } : m // Clear image content
+            );
+            return { ...s, messages: cleanMessages };
+          });
+
+          try {
+            // Retry save with optimized data
+            localStorage.setItem('wizard_sessions', JSON.stringify(optimizedSessions));
+            console.log('Storage Check: Cleanup successful.');
+          } catch (retryError) {
+            console.error('Storage Check: Cleanup failed. Data may be lost.', retryError);
+            alert('저장 공간이 부족하여 일부 데이터가 저장되지 않을 수 있습니다.');
+          }
+        }
+      }
     }
   }, [sessions]);
 
@@ -320,34 +347,28 @@ ${chatSummary}`;
 
       const newPost = { title: data.title, content: finalContent, tags: data.tags };
 
-      // Safely update sessions with storage quota handling
-      const updatedSessions = sessions.map(s => s.id === currentSessionId ? { ...s, post: newPost, title: data.title } : s);
+      // Create system message
+      const systemMsg = {
+        id: Date.now() + 2,
+        sender: 'ai',
+        type: 'text',
+        content: '✨ 정리 완료! 입력하신 내용을 바탕으로 글을 다듬었습니다.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
 
-      // Check localStorage quota before saving
-      try {
-        const testData = JSON.stringify(updatedSessions);
-        if (testData.length > 4 * 1024 * 1024) { // 4MB safety limit
-          console.warn('Session data too large, clearing old images');
-          // Keep only the last 3 images per session
-          updatedSessions.forEach(session => {
-            const images = session.messages.filter(m => m.type === 'image');
-            if (images.length > 3) {
-              const toRemove = images.slice(0, images.length - 3);
-              session.messages = session.messages.filter(m => !toRemove.includes(m));
-            }
-          });
-        }
-        localStorage.setItem('wizard_sessions', JSON.stringify(updatedSessions));
-      } catch (storageErr) {
-        console.error('Storage quota exceeded:', storageErr);
-        // Continue without saving - data still in memory
-      }
+      // Update sessions with new post AND system message in one go
+      const finalSessions = sessions.map(s =>
+        s.id === currentSessionId
+          ? { ...s, post: newPost, title: data.title, messages: [...s.messages, systemMsg] }
+          : s
+      );
 
-      setSessions(updatedSessions);
+      // State updates
+      setSessions(finalSessions);
       setHasNewPostContent(true);
       pushToHistory(newPost);
-      const systemMsg = { id: Date.now() + 2, sender: 'ai', type: 'text', content: '✨ 정리 완료! 입력하신 내용을 바탕으로 글을 다듬었습니다.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
-      setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, systemMsg] } : s));
+
+      // Note: localStorage saving is handled automatically by the useEffect hook
     } catch (err) {
       console.error('Blog generation error:', err);
       alert(`블로그 생성 오류: ${err.message || '알 수 없는 오류가 발생했습니다.'}`);
