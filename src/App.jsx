@@ -213,13 +213,53 @@ const App = () => {
     }
   };
 
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => handleSendMessage(ev.target.result, 'image');
-      reader.readAsDataURL(file);
+  // Compress image to prevent localStorage overflow on mobile
+  const compressImage = (file, maxSize = 1200, quality = 0.7) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      img.onload = () => {
+        let { width, height } = img;
+
+        // Maintain aspect ratio while resizing
+        if (width > height && width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Clean up object URL
+        URL.revokeObjectURL(img.src);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        reject(new Error('Image load failed'));
+      };
+      img.src = URL.createObjectURL(file);
     });
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+      try {
+        const compressedImage = await compressImage(file, 1200, 0.7);
+        handleSendMessage(compressedImage, 'image');
+      } catch (err) {
+        console.error('Image compression failed:', err);
+        alert('이미지 처리 중 오류가 발생했습니다. 다른 사진을 시도해주세요.');
+      }
+    }
   };
 
   // --- Blog Generation ---
