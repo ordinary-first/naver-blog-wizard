@@ -263,6 +263,7 @@ const App = () => {
   };
 
   // --- Blog Generation ---
+  // --- Blog Generation ---
   const generateBlogPost = async () => {
     if (!apiKeys.gemini) { alert('설정에서 API 키를 등록해주세요!'); setShowSettings(true); return; }
     setIsGenerating(true);
@@ -271,7 +272,19 @@ const App = () => {
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const userMessages = currentSession.messages.filter(m => m.sender === 'user');
       const chatSummary = userMessages.map(m => m.type === 'text' ? `[TEXT]: ${m.content}` : `[IMAGE]`).join('\n');
-      const prompt = `네이버 블로그 마케터로서 대화 내용을 바탕으로 블로그 포스트를 JSON 형식으로 작성하세요. { "title": "제목", "content_blocks": ["문단1", "문단2"], "tags": ["태그1"] } 대화: ${chatSummary}`;
+
+      const prompt = `
+당신은 사용자의 메모를 정리해주는 '블로그 에디터'입니다. 창작자가 아닙니다.
+절대 사용자가 제공하지 않은 사실을 지어내지 마세요 (No Hallucinations).
+사용자가 입력한 정보(일시, 장소, 메뉴, 감정 등)를 바탕으로 자연스러운 문장으로만 연결/윤문하세요.
+정보가 없으면 없는대로 놔두세요. 절대 과장하거나 꾸며내지 마세요.
+
+다음 대화 내용을 바탕으로 블로그 포스트를 JSON 형식으로 작성하세요.
+형식: { "title": "핵심을 담은 담백한 제목", "content_blocks": ["문단1", "문단2", ...], "tags": ["태그1", "태그2"] }
+
+대화 내용:
+${chatSummary}`;
+
       const result = await model.generateContent(prompt);
       let text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -280,12 +293,31 @@ const App = () => {
 
       const chatImages = userMessages.filter(m => m.type === 'image');
       const finalContent = [];
+
       data.content_blocks.forEach((textVal, idx) => {
         finalContent.push({ id: `text-${Date.now()}-${idx}`, type: 'text', value: textVal });
-        if (chatImages[idx % chatImages.length]) {
-          finalContent.push({ id: `img-${Date.now()}-${idx}`, type: 'image', value: chatImages[idx % chatImages.length].content });
+
+        // Add image only if available and not repeated
+        if (idx < chatImages.length) {
+          finalContent.push({
+            id: `img-${Date.now()}-${idx}`,
+            type: 'image',
+            value: chatImages[idx].content
+          });
         }
       });
+
+      // Append remaining images if any
+      if (chatImages.length > data.content_blocks.length) {
+        for (let i = data.content_blocks.length; i < chatImages.length; i++) {
+          finalContent.push({
+            id: `img-${Date.now()}-${i}`,
+            type: 'image',
+            value: chatImages[i].content
+          });
+        }
+      }
+
       const newPost = { title: data.title, content: finalContent, tags: data.tags };
 
       // Safely update sessions with storage quota handling
@@ -314,7 +346,7 @@ const App = () => {
       setSessions(updatedSessions);
       setHasNewPostContent(true);
       pushToHistory(newPost);
-      const systemMsg = { id: Date.now() + 2, sender: 'ai', type: 'text', content: '✨ 블로그 글이 생성되었습니다! 상단의 [글] 탭에서 확인해보세요.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+      const systemMsg = { id: Date.now() + 2, sender: 'ai', type: 'text', content: '✨ 정리 완료! 입력하신 내용을 바탕으로 글을 다듬었습니다.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
       setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, systemMsg] } : s));
     } catch (err) {
       console.error('Blog generation error:', err);
