@@ -5,13 +5,13 @@ import {
   BookOpen, ChevronLeft, Calendar, Eye, Plus, MessageCircle,
   FileText, RotateCcw, RotateCw, MoreVertical, GripVertical, Edit3,
   Type, Quote, Minus, MapPin, Link as LinkIcon, Camera, Music, Video,
-  Monitor, Tablet, Smartphone, LogOut
+  Monitor, Tablet, Smartphone, LogOut, Star, Moon, Sun
 } from 'lucide-react';
 import './index.css';
 
 const App = () => {
   // Navigation & Session State
-  const [view, setView] = useState('home'); // 'home' | 'editor'
+  const [view, setView] = useState('home'); // 'home' | 'editor' | 'settings'
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'post'
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [sessions, setSessions] = useState([]);
@@ -24,7 +24,6 @@ const App = () => {
   const [isToolbarOpen, setIsToolbarOpen] = useState(false); // Floating toolbar toggle
 
   // App Global States
-  const [showSettings, setShowSettings] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [apiKeys, setApiKeys] = useState({
     gemini: import.meta.env.VITE_GEMINI_API_KEY || '',
@@ -36,8 +35,11 @@ const App = () => {
   const [naverUser, setNaverUser] = useState(null); // { nickname, blogTitle, profileImage, etc. }
 
   // Home View State
+  const [sessionTab, setSessionTab] = useState('active');
   const [showAllChats, setShowAllChats] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
+  const [contextMenu, setContextMenu] = useState({ visible: false, sessionId: null, x: 0, y: 0 });
+  const longPressTimer = useRef(null);
 
   // Undo/Redo History for Post Editor
   const [history, setHistory] = useState([]);
@@ -47,9 +49,12 @@ const App = () => {
   const postInputRef = useRef(null);
 
   // Style Cloning State
-  const [styleRefs, setStyleRefs] = useState(['', '', '']);
+  const [representativeIds, setRepresentativeIds] = useState([]);
   const [userStylePrompt, setUserStylePrompt] = useState('');
   const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
+
+  // Theme State
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Load Initial Data
   useEffect(() => {
@@ -59,12 +64,17 @@ const App = () => {
     const savedNaverUser = localStorage.getItem('naver_user');
     if (savedNaverUser) setNaverUser(JSON.parse(savedNaverUser));
 
-    // Load saved style
-    const savedStyleRefs = localStorage.getItem('wizard_style_refs');
-    if (savedStyleRefs) setStyleRefs(JSON.parse(savedStyleRefs));
+    const savedRepIds = localStorage.getItem('wizard_representative_ids');
+    if (savedRepIds) setRepresentativeIds(JSON.parse(savedRepIds));
 
     const savedStylePrompt = localStorage.getItem('wizard_user_style');
     if (savedStylePrompt) setUserStylePrompt(savedStylePrompt);
+
+    // Load theme preference
+    const savedTheme = localStorage.getItem('wizard_theme');
+    if (savedTheme !== null) {
+      setIsDarkMode(savedTheme === 'dark');
+    }
 
     const savedSessions = localStorage.getItem('wizard_sessions');
     if (savedSessions) {
@@ -87,6 +97,16 @@ const App = () => {
       setSessions([initialSession]);
     }
   }, []);
+
+  // Apply theme to body
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.remove('light-mode');
+    } else {
+      document.body.classList.add('light-mode');
+    }
+    localStorage.setItem('wizard_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   // Save Sessions whenever they change with Quota Management
   useEffect(() => {
@@ -138,6 +158,18 @@ const App = () => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSessionId, sessions, activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('wizard_representative_ids', JSON.stringify(representativeIds));
+  }, [representativeIds]);
+
+  const toggleRepresentative = (sessionId) => {
+    setRepresentativeIds(prev =>
+      prev.includes(sessionId)
+        ? prev.filter(id => id !== sessionId)
+        : [...prev, sessionId]
+    );
+  };
 
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
@@ -303,9 +335,18 @@ const App = () => {
 
   // --- Style Analysis Logic ---
   const analyzeUserStyle = async () => {
-    if (!apiKeys.gemini) { alert('API 키가 필요합니다.'); return; }
-    const validRefs = styleRefs.filter(text => text.trim().length > 50);
-    if (validRefs.length === 0) { alert('분석할 대표글을 최소 1개 이상 입력해주세요 (각 50자 이상).'); return; }
+    if (!apiKeys.gemini) { alert('서비스 설정 오류: API 키가 구성되지 않았습니다.'); return; }
+
+    // 대표글로 지정된 세션의 본문 텍스트 추출
+    const repSessions = sessions.filter(s => representativeIds.includes(s.id));
+    const validRefs = repSessions.map(s =>
+      s.post.content.filter(b => b.type === 'text').map(b => b.value).join('\n')
+    ).filter(text => text.trim().length > 50);
+
+    if (validRefs.length === 0) {
+      alert('분석할 대표글을 최소 1개 이상 지정해주세요. (홈 화면의 발행한 글 섹션에서 별 아이콘 클릭)');
+      return;
+    }
 
     setIsAnalyzingStyle(true);
     try {
@@ -333,7 +374,6 @@ ${validRefs.map((t, i) => `--- 글 #${i + 1} ---\n${t}`).join('\n\n')}
 
       setUserStylePrompt(styleGuide);
       localStorage.setItem('wizard_user_style', styleGuide);
-      localStorage.setItem('wizard_style_refs', JSON.stringify(styleRefs));
 
       alert('✅ 스타일 분석이 완료되었습니다! 이제부터 AI가 회원님의 말투를 따라합니다.');
     } catch (err) {
@@ -344,10 +384,10 @@ ${validRefs.map((t, i) => `--- 글 #${i + 1} ---\n${t}`).join('\n\n')}
     }
   };
 
-  
-// --- Blog Generation ---
+
+  // --- Blog Generation ---
   const generateBlogPost = async () => {
-    if (!apiKeys.gemini) { alert('설정에서 API 키를 등록해주세요!'); setShowSettings(true); return; }
+    if (!apiKeys.gemini) { alert('서비스 설정 오류: API 키가 구성되지 않았습니다.'); return; }
     setIsGenerating(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKeys.gemini);
@@ -601,107 +641,227 @@ ${chatSummary}`;
     const published = sessions.filter(s => s.status === 'published');
     const active = sessions.filter(s => s.status === 'active');
 
-    // Lists to display based on expansion state
-    const visibleActive = showAllChats ? active : active.slice(0, 3);
-    const visiblePublished = showAllPosts ? published : published.slice(0, 3);
-
     return (
-      <div className="reveal" style={{ padding: '2rem 1.5rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div className="reveal" style={{ padding: '1rem 1.2rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Compact Header */}
-        <div style={{ marginBottom: '2.5rem', textAlign: 'center', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', marginBottom: '0.5rem' }}>
-            <img src={naverUser.profileImage} style={{ width: 'clamp(50px, 15vw, 60px)', height: 'clamp(50px, 15vw, 60px)', borderRadius: '50%', border: '3px solid var(--naver-green)', boxShadow: '0 0 15px rgba(3, 199, 90, 0.2)' }} alt="profile" />
-            <div style={{ textAlign: 'left' }}>
-              <h1 style={{ fontSize: 'clamp(1.4rem, 5vw, 1.8rem)', fontWeight: '950', letterSpacing: '-1px', margin: 0, lineHeight: 1 }}>안녕하세요,</h1>
-              <h1 className="premium-gradient" style={{ fontSize: 'clamp(1.4rem, 5vw, 1.8rem)', fontWeight: '950', letterSpacing: '-1px', margin: 0, lineHeight: 1 }}>{naverUser.blogTitle}님!</h1>
-            </div>
+        <div style={{ marginBottom: '1.5rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.8rem' }}>
+          <img src={naverUser.profileImage} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }} alt="profile" />
+          <div style={{ textAlign: 'left' }}>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)', display: 'block' }}>안녕하세요,</span>
+            <h1 className="premium-gradient" style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>{naverUser.blogTitle}님</h1>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem', width: '100%', maxWidth: '850px' }}>
+        {/* Tab Navigation */}
+        <div style={{ display: 'flex', width: '100%', maxWidth: '850px', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <button
+            onClick={() => setSessionTab('active')}
+            style={{
+              flex: 1,
+              padding: '0.8rem',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: sessionTab === 'active' ? '2px solid var(--naver-green)' : '2px solid transparent',
+              color: sessionTab === 'active' ? 'white' : 'var(--text-dim)',
+              fontSize: '0.95rem',
+              fontWeight: sessionTab === 'active' ? '800' : '500',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            작성 중 ({active.length})
+          </button>
+          <button
+            onClick={() => setSessionTab('published')}
+            style={{
+              flex: 1,
+              padding: '0.8rem',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: sessionTab === 'published' ? '2px solid var(--naver-green)' : '2px solid transparent',
+              color: sessionTab === 'published' ? 'white' : 'var(--text-dim)',
+              fontSize: '0.95rem',
+              fontWeight: sessionTab === 'published' ? '800' : '500',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            발행됨 ({published.length})
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%', maxWidth: '850px' }}>
 
           {/* Ongoing Chats Section */}
-          <section>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', margin: 0 }}>
-                <MessageCircle size={18} color="var(--naver-green)" /> 진행 중인 대화
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: '600', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '12px' }}>{active.length}</span>
-              </h2>
-            </div>
-
-            {active.length === 0 ? (
-              <div className="glass" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-dim)', borderRadius: '24px' }}>
-                <p>진행 중인 대화가 없습니다.</p>
-                <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>새로운 주제로 대화를 시작해보세요!</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                {visibleActive.map(s => (
-                  <div key={s.id} className="session-item reveal glass" onClick={() => { setCurrentSessionId(s.id); setView('editor'); }} style={{ padding: '1rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ background: 'rgba(3, 199, 90, 0.1)', minWidth: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <MessageCircle size={22} color="var(--naver-green)" />
+          {sessionTab === 'active' && (
+            <section className="reveal">
+              {active.length === 0 ? (
+                <div className="glass" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-dim)', borderRadius: '16px' }}>
+                  <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>작성 중인 글이 없습니다.</p>
+                  <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>아래 + 버튼을 눌러 새로운 글을 써보세요!</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {active.map(s => (
+                    <div key={s.id} className="session-item reveal glass" onClick={() => { setCurrentSessionId(s.id); setView('editor'); }} style={{ padding: '0.8rem', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '0.8rem', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
+                      <div style={{ background: 'rgba(3, 199, 90, 0.1)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <MessageCircle size={18} color="var(--naver-green)" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={{ fontSize: '0.9rem', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem' }}>{s.title}</h3>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.messages[s.messages.length - 1]?.content}</p>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{new Date(s.createdAt).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}</span>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem' }}>{s.title}</h3>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.messages[s.messages.length - 1]?.content}</p>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{new Date(s.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                  </div>
-                ))}
-                {active.length > 3 && (
-                  <button
-                    onClick={() => setShowAllChats(!showAllChats)}
-                    className="button-hover"
-                    style={{ width: '100%', padding: '0.8rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '16px', color: 'var(--text-dim)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer', marginTop: '0.5rem' }}
-                  >
-                    {showAllChats ? '접기' : `더보기 (${active.length - 3}개)`}
-                  </button>
-                )}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Published Posts Section */}
-          <section>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', margin: 0 }}>
-                <BookOpen size={18} color="var(--naver-green)" /> 발행한 글
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: '600', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '12px' }}>{published.length}</span>
-              </h2>
-            </div>
-
-            {published.length === 0 ? (
-              <div className="glass" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-dim)', borderRadius: '24px' }}>
-                <p>아직 발행된 글이 없습니다.</p>
-                <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>AI와 함께 멋진 글을 작성해보세요.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                {visiblePublished.map(s => (
-                  <div key={s.id} className="session-item reveal" onClick={() => { setCurrentSessionId(s.id); setView('editor'); setActiveTab('post'); }} style={{ position: 'relative', borderRadius: '24px', overflow: 'hidden', aspectRatio: '21/9', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', cursor: 'pointer' }}>
-                    <img src={s.post.content.find(b => b.type === 'image')?.value || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&auto=format'} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }} alt="post cover" className="hover-scale" />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '1.5rem', background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                      <h3 style={{ color: 'white', fontSize: '1.3rem', fontWeight: '800', lineHeight: '1.4', marginBottom: '0.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{s.title}</h3>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>{new Date(s.publishedAt).toLocaleDateString()}</span>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--naver-green)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '8px', fontWeight: '600' }}>발행 완료</span>
+          {sessionTab === 'published' && (
+            <section className="reveal">
+              {published.length === 0 ? (
+                <div className="glass" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-dim)', borderRadius: '16px' }}>
+                  <p style={{ fontSize: '0.9rem' }}>아직 발행된 글이 없습니다.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {published.map(s => (
+                    <div
+                      key={s.id}
+                      className="session-item reveal glass"
+                      style={{
+                        padding: '0.8rem',
+                        borderRadius: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.8rem',
+                        border: representativeIds.includes(s.id) ? '1px solid rgba(255, 215, 0, 0.3)' : '1px solid rgba(255,255,255,0.05)',
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                      }}
+                      onClick={() => { setCurrentSessionId(s.id); setView('editor'); setActiveTab('post'); }}
+                      onTouchStart={(e) => {
+                        longPressTimer.current = setTimeout(() => {
+                          const rect = e.target.getBoundingClientRect();
+                          setContextMenu({ visible: true, sessionId: s.id, x: rect.left + rect.width / 2, y: rect.top });
+                        }, 500);
+                      }}
+                      onTouchEnd={() => clearTimeout(longPressTimer.current)}
+                      onTouchCancel={() => clearTimeout(longPressTimer.current)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({ visible: true, sessionId: s.id, x: e.clientX, y: e.clientY });
+                      }}
+                    >
+                      <div style={{ background: representativeIds.includes(s.id) ? 'rgba(255, 215, 0, 0.15)' : 'rgba(3, 199, 90, 0.1)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {representativeIds.includes(s.id) ? <Star size={18} color="#FFD700" fill="#FFD700" /> : <BookOpen size={18} color="var(--naver-green)" />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={{ fontSize: '0.9rem', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem' }}>{s.title}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(s.publishedAt).toLocaleDateString()}</span>
+                          {representativeIds.includes(s.id) && <span style={{ fontSize: '0.7rem', color: '#FFD700', background: 'rgba(255, 215, 0, 0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: '500' }}>대표글</span>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {published.length > 3 && (
-                  <button
-                    onClick={() => setShowAllPosts(!showAllPosts)}
-                    className="button-hover"
-                    style={{ width: '100%', padding: '0.8rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '16px', color: 'var(--text-dim)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer', marginTop: '0.5rem' }}
-                  >
-                    {showAllPosts ? '접기' : `더보기 (${published.length - 3}개)`}
-                  </button>
-                )}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
+
+        {/* Context Menu Popup */}
+        {contextMenu.visible && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)'
+            }}
+            onClick={() => setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 })}
+          >
+            <div
+              className="glass-heavy"
+              style={{
+                padding: '0.8rem',
+                borderRadius: '16px',
+                minWidth: '180px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.4rem',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                {sessions.find(s => s.id === contextMenu.sessionId)?.title || '선택된 글'}
+              </div>
+              <button
+                className="button-hover"
+                onClick={() => {
+                  toggleRepresentative(contextMenu.sessionId);
+                  setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.7rem 0.8rem',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  textAlign: 'left'
+                }}
+              >
+                <Star size={16} color="#FFD700" fill={representativeIds.includes(contextMenu.sessionId) ? '#FFD700' : 'none'} />
+                {representativeIds.includes(contextMenu.sessionId) ? '대표글 해제' : '대표글로 설정'}
+              </button>
+              <button
+                className="button-hover"
+                onClick={() => {
+                  if (confirm('이 글을 삭제하시겠습니까?')) {
+                    setSessions(prev => prev.filter(s => s.id !== contextMenu.sessionId));
+                    setRepresentativeIds(prev => prev.filter(id => id !== contextMenu.sessionId));
+                  }
+                  setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.7rem 0.8rem',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: '#ef4444',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  textAlign: 'left'
+                }}
+              >
+                <Trash2 size={16} />
+                삭제
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -746,81 +906,245 @@ ${chatSummary}`;
     </div>
   );
 
+  const SettingsView = () => (
+    <div className="reveal" style={{ padding: '2rem 1.5rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ width: '100%', maxWidth: '600px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem' }}>
+          <button onClick={() => setView('home')} className="button-hover glass" style={{ padding: '0.4rem', borderRadius: '50%', color: 'white', border: 'none', display: 'flex' }}>
+            <ChevronLeft size={18} />
+          </button>
+          <h1 style={{ fontSize: '1.3rem', fontWeight: '900', margin: 0 }}>서비스 설정</h1>
+        </div>
+
+        {/* Theme Toggle Section */}
+        <section className="glass" style={{ padding: '1.2rem', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {isDarkMode ? <Moon size={16} color="var(--naver-green)" /> : <Sun size={16} color="var(--naver-green)" />}
+              <h2 style={{ fontSize: '1rem', fontWeight: '800', margin: 0 }}>화면 테마</h2>
+            </div>
+            <div
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              style={{
+                width: '52px',
+                height: '28px',
+                backgroundColor: isDarkMode ? 'var(--naver-green)' : 'rgba(0,0,0,0.2)',
+                borderRadius: '100px',
+                position: 'relative',
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: isDarkMode ? '0 0 12px rgba(3, 199, 90, 0.25)' : 'none'
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: '3px',
+                left: isDarkMode ? '27px' : '3px',
+                width: '22px',
+                height: '22px',
+                backgroundColor: 'white',
+                borderRadius: '50%',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                {isDarkMode ? <Moon size={12} color="var(--naver-green)" /> : <Sun size={12} color="#f59e0b" />}
+              </div>
+            </div>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.6rem', lineHeight: '1.4' }}>
+            {isDarkMode ? '다크 모드가 적용 중입니다.' : '라이트 모드가 적용 중입니다.'}
+          </p>
+        </section>
+
+        {/* Style Learning Section */}
+        <section className="glass" style={{ padding: '1.2rem', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Edit3 size={16} color="var(--naver-green)" />
+              <h2 style={{ fontSize: '1rem', fontWeight: '800', margin: 0 }}>내 스타일 학습시키기</h2>
+            </div>
+            {userStylePrompt && <span style={{ fontSize: '0.65rem', color: 'var(--naver-green)', background: 'rgba(3,199,90,0.1)', padding: '2px 8px', borderRadius: '100px', fontWeight: '700' }}>학습 완료</span>}
+          </div>
+
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '1.2rem', lineHeight: '1.5' }}>
+            나의 문체가 잘 드러나는 발행글을 대표글로 지정해주세요. <br />
+            AI가 해당 글들을 분석하여 회원님의 말투로 글을 작성해드립니다.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {sessions.filter(s => representativeIds.includes(s.id)).length === 0 ? (
+              <div className="glass" style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'var(--text-dim)', borderRadius: '14px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                <p style={{ fontSize: '0.8rem', margin: 0, lineHeight: '1.5' }}>
+                  아직 지정된 대표글이 없습니다.<br />
+                  <span style={{ color: 'var(--naver-green)', fontWeight: '700' }}>홈 화면의 '발행한 글'</span>에서 별 아이콘을 눌러 지정해주세요.
+                </p>
+              </div>
+            ) : (
+              sessions.filter(s => representativeIds.includes(s.id)).map(s => (
+                <div key={s.id} className="session-item glass button-hover" style={{ padding: '0.7rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.6rem', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }} onClick={() => { setCurrentSessionId(s.id); setView('editor'); setActiveTab('post'); }}>
+                  <div style={{ background: 'rgba(3, 199, 90, 0.1)', width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <BookOpen size={14} color="var(--naver-green)" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.1rem', color: 'white' }}>{s.title}</h3>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(s.publishedAt).toLocaleDateString()} 발행</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleRepresentative(s.id);
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: '#FFD700', padding: '0.3rem', display: 'flex' }}
+                  >
+                    <Star size={14} fill="#FFD700" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <button
+            onClick={analyzeUserStyle}
+            className="button-hover"
+            disabled={isAnalyzingStyle}
+            style={{
+              width: '100%',
+              marginTop: '1.2rem',
+              padding: '0.9rem',
+              background: isAnalyzingStyle ? 'rgba(255,255,255,0.05)' : 'var(--naver-green)',
+              color: 'white',
+              fontWeight: '900',
+              borderRadius: '14px',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              boxShadow: !isAnalyzingStyle ? '0 6px 20px rgba(3, 199, 90, 0.2)' : 'none',
+              fontSize: '0.9rem'
+            }}
+          >
+            {isAnalyzingStyle ? (
+              '스타일 분석 중...'
+            ) : (
+              <>
+                <Sparkles size={16} />
+                {userStylePrompt ? '스타일 다시 분석하기' : '내 스타일 분석 시작하기'}
+              </>
+            )}
+          </button>
+        </section>
+
+        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.6rem' }}>
+          <button
+            className="button-hover glass"
+            style={{ flex: 1, padding: '0.9rem', color: 'white', borderRadius: '14px', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.85rem' }}
+            onClick={() => setView('home')}
+          >
+            홈으로 돌아가기
+          </button>
+          <button
+            className="button-hover"
+            style={{
+              flex: 1.5,
+              padding: '0.9rem',
+              background: 'white',
+              color: 'black',
+              fontWeight: '900',
+              borderRadius: '14px',
+              border: 'none',
+              fontSize: '0.9rem'
+            }}
+            onClick={() => {
+              alert('설정이 안전하게 저장되었습니다.');
+              setView('home');
+            }}
+          >
+            설정 저장하기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (!naverUser) return <LoginView />;
 
   return (
     <div className="app-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-dark)' }}>
-      <header className="glass" style={{ margin: '1rem', padding: '0.8rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '16px', zIndex: 100 }}>
+      <header className="glass" style={{ margin: '0.6rem', padding: '0.5rem 0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '12px', zIndex: 100 }}>
         <div
           className="button-hover"
           onClick={() => setView('home')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
         >
-          <div style={{ background: 'var(--naver-green)', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={18} fill="white" /></div>
-          <div><h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1.2rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1></div>
+          <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
+          <div><h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1></div>
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
           {naverUser && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '24px' }}>
-              <img src={naverUser.profileImage} style={{ width: '24px', height: '24px', borderRadius: '50%' }} alt="profile" />
-              <span className="mobile-hide-text" style={{ fontSize: '0.85rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
+              <img src={naverUser.profileImage} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
+              <span className="mobile-hide-text" style={{ fontSize: '0.75rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
               <button
                 onClick={handleNaverLogout}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: '0.7rem', cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: '0.65rem', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', gap: '2px' }}
                 title="로그아웃"
               >
-                <LogOut size={16} /> <span className="mobile-hide-text">로그아웃</span>
+                <LogOut size={12} /> <span className="mobile-hide-text">로그아웃</span>
               </button>
             </div>
           )}
-          {view === 'editor' && (
-            <button className="glass button-hover" onClick={() => setView('home')} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}>
-              <ChevronLeft size={18} /> <span className="mobile-hide-text">홈으로</span>
+          {view !== 'home' && (
+            <button className="glass button-hover" onClick={() => setView('home')} style={{ padding: '0.35rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'white', borderRadius: '10px' }}>
+              <ChevronLeft size={14} /> <span className="mobile-hide-text" style={{ fontSize: '0.75rem' }}>홈으로</span>
             </button>
           )}
-          <button className="glass button-hover" onClick={() => setShowSettings(true)} style={{ padding: '0.5rem', color: 'var(--text-dim)', borderRadius: '50%' }}><Settings size={20} /></button>
+          <button className="glass button-hover" onClick={() => setView('settings')} style={{ padding: '0.35rem', color: view === 'settings' ? 'var(--naver-green)' : 'var(--text-dim)', borderRadius: '50%' }}><Settings size={16} /></button>
         </div>
       </header>
 
       <main style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {view === 'home' ? <HomeView /> : (
+        {view === 'home' ? <HomeView /> : view === 'settings' ? <SettingsView /> : (
           <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div className="tab-container" style={{ marginBottom: '1.5rem' }}>
-              <div className={`tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}><MessageCircle size={18} /> 대화</div>
-              <div className={`tab ${activeTab === 'post' ? 'active' : ''} ${hasNewPostContent ? 'has-new' : ''}`} onClick={() => { setActiveTab('post'); setHasNewPostContent(false); }}><FileText size={18} /> 글</div>
+            <div className="tab-container" style={{ marginBottom: '1rem' }}>
+              <div className={`tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}><MessageCircle size={14} /> 대화</div>
+              <div className={`tab ${activeTab === 'post' ? 'active' : ''} ${hasNewPostContent ? 'has-new' : ''}`} onClick={() => { setActiveTab('post'); setHasNewPostContent(false); }}><FileText size={14} /> 글</div>
             </div>
 
             {activeTab === 'chat' ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '0 1rem' }}>
                   <div className="chat-window" style={{ maxWidth: '750px', margin: '0 auto', width: '100%', paddingBottom: '160px' }}>
-                    <div className="glass-heavy reveal" style={{ padding: '0.8rem 1.2rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', minWidth: 0 }}>
-                        <div className="floating-action" style={{ background: aiResponsesEnabled ? 'var(--naver-green)' : 'var(--text-muted)', width: '36px', height: '36px', minWidth: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}><Sparkles size={18} color="white" /></div>
+                    <div className="glass-heavy reveal" style={{ padding: '0.5rem 0.8rem', marginBottom: '1rem', display: 'flex', gap: '0.6rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: 0 }}>
+                        <div className="floating-action" style={{ background: aiResponsesEnabled ? 'var(--naver-green)' : 'var(--text-muted)', width: '28px', height: '28px', minWidth: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}><Sparkles size={14} color="white" /></div>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: '800', fontSize: '0.9rem' }}>AI 위저드 {aiResponsesEnabled ? '대화 중' : '휴식 중'}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{aiResponsesEnabled ? '사진을 보내거나 일상을 들려주세요.' : 'AI 답변 없이 오직 기록에만 집중합니다.'}</div>
+                          <div style={{ fontWeight: '700', fontSize: '0.8rem' }}>AI 위저드 {aiResponsesEnabled ? '대화 중' : '휴식 중'}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{aiResponsesEnabled ? '사진을 보내거나 일상을 들려주세요.' : 'AI 답변 없이 기록만.'}</div>
                         </div>
                       </div>
                       <div
                         onClick={() => setAiResponsesEnabled(!aiResponsesEnabled)}
                         style={{
-                          width: '56px',
-                          height: '30px',
+                          width: '44px',
+                          height: '24px',
                           backgroundColor: aiResponsesEnabled ? 'var(--naver-green)' : 'rgba(255,255,255,0.1)',
                           borderRadius: '100px',
                           position: 'relative',
                           cursor: 'pointer',
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          boxShadow: aiResponsesEnabled ? '0 0 15px rgba(3, 199, 90, 0.3)' : 'none'
+                          boxShadow: aiResponsesEnabled ? '0 0 10px rgba(3, 199, 90, 0.3)' : 'none'
                         }}
                       >
                         <div style={{
                           position: 'absolute',
-                          top: '3px',
-                          left: aiResponsesEnabled ? '29px' : '3px',
-                          width: '24px',
-                          height: '24px',
+                          top: '2px',
+                          left: aiResponsesEnabled ? '22px' : '2px',
+                          width: '20px',
+                          height: '20px',
                           backgroundColor: 'white',
                           borderRadius: '50%',
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -829,7 +1153,7 @@ ${chatSummary}`;
                           justifyContent: 'center',
                           boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                         }}>
-                          <Sparkles size={12} color={aiResponsesEnabled ? 'var(--naver-green)' : '#ccc'} />
+                          <Sparkles size={10} color={aiResponsesEnabled ? 'var(--naver-green)' : '#ccc'} />
                         </div>
                       </div>
                     </div>
@@ -1057,103 +1381,14 @@ ${chatSummary}`;
         )}
 
         {view === 'home' && (
-          <button className="cta-button button-hover reveal" onClick={createNewSession} style={{ animationDelay: '0.3s' }}>
-            <Plus size={24} />
+          <button className="cta-button button-hover reveal" onClick={createNewSession} style={{ animationDelay: '0.3s', padding: '0.8rem 1.5rem', fontSize: '0.9rem', borderRadius: '16px' }}>
+            <Plus size={18} />
             일상을 기록하기
           </button>
         )}
       </main>
-
-      {showSettings && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 17, 21, 0.95)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="glass reveal" style={{ width: 'min(420px, 90%)', padding: '2.5rem' }}>
-            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.4rem', fontWeight: '800' }}>🚀 서비스 설정</h2>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>Gemini API Key</label>
-              <input type="password" className="glass" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', padding: '1rem', color: 'white' }} value={apiKeys.gemini} onChange={(e) => setApiKeys({ ...apiKeys, gemini: e.target.value })} placeholder="AI 글 생성을 위해 필요합니다." />
-            </div>
-
-            <div style={{ padding: '1.5rem 0', borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>🎨 내 스타일 학습시키기</h3>
-                {userStylePrompt && <span style={{ fontSize: '0.8rem', color: 'var(--naver-green)', background: 'rgba(3,199,90,0.1)', padding: '2px 8px', borderRadius: '4px' }}>학습 완료됨</span>}
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '1rem' }}>평소 작성하신 '대표 블로그 글'을 1~3개 붙여넣어주세요.<br />AI가 회원님의 말투와 문체를 완벽하게 분석합니다.</p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
-                {[0, 1, 2].map(idx => (
-                  <textarea
-                    key={idx}
-                    className="glass"
-                    value={styleRefs[idx]}
-                    onChange={(e) => {
-                      const newRefs = [...styleRefs];
-                      newRefs[idx] = e.target.value;
-                      setStyleRefs(newRefs);
-                    }}
-                    placeholder={`대표글 #${idx + 1} 본문 붙여넣기...`}
-                    rows={4}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', padding: '0.8rem', color: 'white', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem', resize: 'vertical' }}
-                  />
-                ))}
-              </div>
-
-              <button
-                onClick={analyzeUserStyle}
-                className="button-hover"
-                disabled={isAnalyzingStyle || !apiKeys.gemini}
-                style={{ width: '100%', marginTop: '1rem', padding: '0.8rem', background: userStylePrompt ? 'transparent' : 'rgba(255,255,255,0.1)', border: '1px solid var(--naver-green)', color: 'var(--naver-green)', fontWeight: '700', borderRadius: '10px' }}
-              >
-                {isAnalyzingStyle ? '분석 중...' : userStylePrompt ? '🔄 스타일 다시 분석하기' : '✨ 내 스타일 분석 시작'}
-              </button>
-            </div>
-
-            <div style={{ padding: '1.5rem 0', borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>🎨 내 스타일 학습시키기</h3>
-                {userStylePrompt && <span style={{ fontSize: '0.8rem', color: 'var(--naver-green)', background: 'rgba(3,199,90,0.1)', padding: '2px 8px', borderRadius: '4px' }}>학습 완료됨</span>}
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '1rem' }}>평소 작성하신 '대표 블로그 글'을 1~3개 붙여넣어주세요.<br />AI가 회원님의 말투와 문체를 완벽하게 분석합니다.</p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
-                {[0, 1, 2].map(idx => (
-                  <textarea
-                    key={idx}
-                    className="glass"
-                    value={styleRefs[idx]}
-                    onChange={(e) => {
-                      const newRefs = [...styleRefs];
-                      newRefs[idx] = e.target.value;
-                      setStyleRefs(newRefs);
-                    }}
-                    placeholder={`대표글 #${idx + 1} 본문 붙여넣기...`}
-                    rows={4}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', padding: '0.8rem', color: 'white', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem', resize: 'vertical' }}
-                  />
-                ))}
-              </div>
-
-              <button
-                onClick={analyzeUserStyle}
-                className="button-hover"
-                disabled={isAnalyzingStyle || !apiKeys.gemini}
-                style={{ width: '100%', marginTop: '1rem', padding: '0.8rem', background: userStylePrompt ? 'transparent' : 'rgba(255,255,255,0.1)', border: '1px solid var(--naver-green)', color: 'var(--naver-green)', fontWeight: '700', borderRadius: '10px' }}
-              >
-                {isAnalyzingStyle ? '분석 중...' : userStylePrompt ? '🔄 스타일 다시 분석하기' : '✨ 내 스타일 분석 시작'}
-              </button>
-            </div>
-
-            <div style={{ marginTop: '3rem', display: 'flex', gap: '1.2rem' }}>
-              <button className="button-hover" style={{ flex: 1, padding: '1rem', background: 'var(--naver-green)', color: 'white', fontWeight: '800', borderRadius: '12px', border: 'none' }} onClick={() => { localStorage.setItem('wizard_settings', JSON.stringify(apiKeys)); setShowSettings(false); }}>저장</button>
-              <button className="button-hover glass" style={{ flex: 1, padding: '1rem', color: 'white', borderRadius: '12px' }} onClick={() => setShowSettings(false)}>취소</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-
 
 export default App;
