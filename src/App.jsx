@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import './index.css';
 import HomeView from './HomeView';
+import { useSupabase } from './hooks/useSupabase';
 
 const App = () => {
   // Navigation & Session State
@@ -43,6 +44,32 @@ const App = () => {
   const [showAllChats, setShowAllChats] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, sessionId: null, x: 0, y: 0 });
+
+  // --- Supabase Integration ---
+  const { isSupabaseReady, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase } = useSupabase(naverUser);
+
+  // Load Sessions from Supabase
+  useEffect(() => {
+    if (isSupabaseReady) {
+      fetchSessions().then(data => {
+        if (data && data.length > 0) {
+          setSessions(data);
+        }
+      });
+    }
+  }, [isSupabaseReady]);
+
+  // Sync Current Session to Supabase
+  useEffect(() => {
+    if (!isSupabaseReady || !currentSessionId) return;
+
+    const currentSession = sessions.find(s => s.id === currentSessionId);
+    if (currentSession) {
+      // Debounce saving if needed, but for now save on change for safety
+      saveSessionToSupabase(currentSession);
+    }
+  }, [sessions, currentSessionId, isSupabaseReady]);
+  // ----------------------------
   const longPressTimer = useRef(null);
 
   // Undo/Redo History for Post Editor
@@ -112,39 +139,7 @@ const App = () => {
     localStorage.setItem('wizard_theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // Save Sessions whenever they change with Quota Management
-  useEffect(() => {
-    if (sessions.length > 0) {
-      try {
-        localStorage.setItem('wizard_sessions', JSON.stringify(sessions));
-      } catch (e) {
-        if (e.name === 'QuotaExceededError') {
-          console.warn('Storage Check: Quota exceeded. Attempting cleanup...');
 
-          // Strategy 1: Remove images from old sessions (keep text)
-          const optimizedSessions = sessions.map((s, idx) => {
-            // Keep the most recent 3 sessions intact
-            if (idx < 3) return s;
-
-            // For older sessions, remove base64 images from messages
-            const cleanMessages = s.messages.map(m =>
-              m.type === 'image' ? { ...m, content: '' } : m // Clear image content
-            );
-            return { ...s, messages: cleanMessages };
-          });
-
-          try {
-            // Retry save with optimized data
-            localStorage.setItem('wizard_sessions', JSON.stringify(optimizedSessions));
-            console.log('Storage Check: Cleanup successful.');
-          } catch (retryError) {
-            console.error('Storage Check: Cleanup failed. Data may be lost.', retryError);
-            alert('저장 공간이 부족하여 일부 데이터가 저장되지 않을 수 있습니다.');
-          }
-        }
-      }
-    }
-  }, [sessions]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -180,7 +175,7 @@ const App = () => {
   // --- Session Management ---
   const createNewSession = () => {
     const newSession = {
-      id: Date.now(),
+      id: crypto.randomUUID(), // Use UUID for Supabase compatibility
       title: '새로운 기록 💬',
       status: 'active',
       messages: [{
