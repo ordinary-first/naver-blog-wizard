@@ -46,29 +46,53 @@ const App = () => {
   const [contextMenu, setContextMenu] = useState({ visible: false, sessionId: null, x: 0, y: 0 });
 
   // --- Supabase Integration ---
-  const { isSupabaseReady, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase } = useSupabase(naverUser);
+  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase } = useSupabase(naverUser);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Load Sessions from Supabase
+  // Load Sessions from Supabase (Priority over localStorage)
   useEffect(() => {
-    if (isSupabaseReady) {
+    if (isSupabaseReady && supabaseUserId && !isDataLoaded) {
+      console.log('Fetching sessions from Supabase...');
       fetchSessions().then(data => {
         if (data && data.length > 0) {
+          console.log('Loaded', data.length, 'sessions from Supabase');
           setSessions(data);
+        } else {
+          console.log('No sessions in Supabase, checking localStorage...');
+          // Fallback to localStorage if Supabase is empty
+          const savedSessions = localStorage.getItem('wizard_sessions');
+          if (savedSessions) {
+            const localSessions = JSON.parse(savedSessions);
+            setSessions(localSessions);
+            // Migrate localStorage data to Supabase
+            localSessions.forEach(session => {
+              saveSessionToSupabase({ ...session, id: session.id.toString().includes('-') ? session.id : crypto.randomUUID() });
+            });
+          }
         }
+        setIsDataLoaded(true);
       });
     }
-  }, [isSupabaseReady]);
+  }, [isSupabaseReady, supabaseUserId, isDataLoaded]);
 
-  // Sync Current Session to Supabase
+  // Auto-save session to Supabase when it changes (debounced)
+  const saveTimeoutRef = useRef(null);
   useEffect(() => {
-    if (!isSupabaseReady || !currentSessionId) return;
+    if (!isSupabaseReady || !supabaseUserId || !currentSessionId || !isDataLoaded) return;
 
     const currentSession = sessions.find(s => s.id === currentSessionId);
     if (currentSession) {
-      // Debounce saving if needed, but for now save on change for safety
-      saveSessionToSupabase(currentSession);
+      // Debounce: save after 1 second of no changes
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        saveSessionToSupabase(currentSession);
+      }, 1000);
     }
-  }, [sessions, currentSessionId, isSupabaseReady]);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [sessions, currentSessionId, isSupabaseReady, supabaseUserId, isDataLoaded]);
   // ----------------------------
   const longPressTimer = useRef(null);
 
