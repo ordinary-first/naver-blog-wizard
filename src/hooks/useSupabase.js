@@ -39,12 +39,13 @@ export const useSupabase = (naverUser) => {
 
     // 2. Auto Login / Signup based on Naver ID (when naverUser is available)
     useEffect(() => {
-        if (!naverUser?.id) return;
+        const naverId = naverUser?.id || naverUser?.nickname;
+        if (!naverId) return;
         if (isSupabaseReady) return; // Already logged in
 
         const autoLogin = async () => {
-            const email = `${naverUser.id}@talklog.app`;
-            const password = `talklog_secure_${naverUser.id}`;
+            const email = `${naverId}@talklog.app`;
+            const password = `talklog_secure_${naverId}`;
 
             try {
                 // Try sign in
@@ -61,7 +62,7 @@ export const useSupabase = (naverUser) => {
                         password,
                         options: {
                             data: {
-                                naver_id: naverUser.id,
+                                naver_id: naverId,
                                 username: naverUser.nickname || 'User',
                                 avatar_url: naverUser.profileImage,
                                 blog_title: naverUser.blogTitle
@@ -77,7 +78,7 @@ export const useSupabase = (naverUser) => {
                         // Sync Profile Data
                         await supabase.from('profiles').upsert({
                             id: userId,
-                            naver_id: naverUser.id,
+                            naver_id: naverId,
                             username: naverUser.nickname,
                             avatar_url: naverUser.profileImage,
                             blog_title: naverUser.blogTitle,
@@ -91,7 +92,7 @@ export const useSupabase = (naverUser) => {
                         // Sync Profile Data on login too
                         await supabase.from('profiles').upsert({
                             id: userId,
-                            naver_id: naverUser.id,
+                            naver_id: naverId,
                             username: naverUser.nickname,
                             avatar_url: naverUser.profileImage,
                             blog_title: naverUser.blogTitle,
