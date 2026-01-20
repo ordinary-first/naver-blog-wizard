@@ -44,7 +44,7 @@ export const useSupabase = (naverUser) => {
         if (isSupabaseReady) return; // Already logged in
 
         const autoLogin = async () => {
-            const email = `${naverId}@example.com`;
+            const email = `talklog.${naverId}@gmail.com`;
             const password = `talklog_secure_${naverId}`;
 
             try {
