@@ -143,7 +143,7 @@ export const useSupabase = (naverUser) => {
                         content: m.content,
                         timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     })),
-                post: { title: '', content: [], tags: [] } // Default empty post
+                post: s.post_data || { title: '', content: [], tags: [] } // Load post data or default
             }));
 
         } catch (error) {
@@ -167,7 +167,8 @@ export const useSupabase = (naverUser) => {
                     status: session.status,
                     is_representative: session.isRepresentative || false,
                     published_at: session.publishedAt,
-                    created_at: session.createdAt || new Date().toISOString()
+                    created_at: session.createdAt || new Date().toISOString(),
+                    post_data: session.post || {} // Save post data
                 }, { onConflict: 'id' });
 
             if (sessionError) throw sessionError;

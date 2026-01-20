@@ -77,6 +77,15 @@ const App = () => {
 
   // Auto-save session to Supabase when it changes (debounced)
   const saveTimeoutRef = useRef(null);
+
+  // 1. Always sync to localStorage for immediate backup
+  useEffect(() => {
+    if (sessions.length > 0) {
+      localStorage.setItem('wizard_sessions', JSON.stringify(sessions));
+    }
+  }, [sessions]);
+
+  // 2. Sync to Supabase (Debounced)
   useEffect(() => {
     if (!isSupabaseReady || !supabaseUserId || !currentSessionId || !isDataLoaded) return;
 
