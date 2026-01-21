@@ -52,7 +52,7 @@ const App = () => {
   const [contextMenu, setContextMenu] = useState({ visible: false, sessionId: null, x: 0, y: 0 });
 
   // --- Supabase Integration ---
-  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase } = useSupabase(naverUser);
+  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase } = useSupabase(naverUser);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Load Sessions from Supabase (Priority over localStorage)
@@ -509,10 +509,19 @@ const App = () => {
           timeoutPromise
         ]);
 
-        // Only send if we got valid image data
+        // Only proceed if we got valid image data
         if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' && compressedImage !== 'ERROR_TIMEOUT' && compressedImage.startsWith('data:')) {
-          handleSendMessage(compressedImage, 'image');
-          console.log('Image sent successfully');
+          // Upload to Supabase and get URL
+          const imageUrl = await uploadImageToSupabase(compressedImage);
+
+          if (imageUrl) {
+            // Send URL instead of base64
+            handleSendMessage(imageUrl, 'image');
+            console.log('Image uploaded and sent successfully:', imageUrl);
+          } else {
+            console.error('Failed to upload image to Supabase');
+            alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
+          }
         } else {
           console.error('Invalid image data:', compressedImage?.substring(0, 50));
           console.error('Full error value:', compressedImage);

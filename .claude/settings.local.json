@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run preview:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout /t 3)",
+      "Bash(start chrome:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: resolve critical bugs - Supabase storage, image compression, and empty src warnings\n\n- Fix Supabase storage error by using placeholders for large base64 image data\n- Increase image compression timeout from 5s to 10s and improve quality settings\n- Fix empty src attribute warnings by providing fallback placeholder images\n- Add better error handling throughout the app\n- Improve code structure and add missing useCallback/useMemo optimizations\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(dir \"C:\\\\Users\\\\myo97\\\\Pictures\" /b)",
+      "Bash(dir:*)"
+    ]
+  }
+}

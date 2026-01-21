@@ -177,18 +177,14 @@ export const useSupabase = (naverUser) => {
             // 2. Messages upsert
             if (session.messages && session.messages.length > 0) {
                 const messagesToUpsert = session.messages.map(m => {
-                    // For image messages, don't store the base64 content (too large)
-                    // Instead, store a placeholder or metadata
-                    const content = m.type === 'image'
-                        ? `[IMAGE_${m.id}]` // Placeholder instead of base64
-                        : m.content;
-
+                    // For image messages, content should now be a URL (not base64)
+                    // No need for placeholder anymore
                     return {
                         id: typeof m.id === 'string' ? m.id : crypto.randomUUID(),
                         session_id: session.id,
                         role: m.sender || m.role,
                         type: m.type || 'text', // Preserve message type
-                        content: content,
+                        content: m.content,
                         timestamp: m.timestamp,
                         created_at: m.createdAt || new Date().toISOString()
                     };
@@ -218,11 +214,60 @@ export const useSupabase = (naverUser) => {
         }
     };
 
+    // 6. Upload Image to Supabase Storage
+    const uploadImageToSupabase = async (base64Image) => {
+        if (!isSupabaseReady || !supabaseUserId) {
+            console.error('Supabase not ready or user not logged in');
+            return null;
+        }
+
+        try {
+            // Convert base64 to Blob
+            const base64Data = base64Image.split(',')[1];
+            const mimeType = base64Image.match(/data:([^;]+);/)[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+
+            // Generate unique filename
+            const fileExt = mimeType.split('/')[1];
+            const fileName = `${supabaseUserId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
+
+            // Upload to Supabase Storage
+            const { data, error } = await supabase.storage
+                .from('chat-images')
+                .upload(fileName, blob, {
+                    contentType: mimeType,
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (error) throw error;
+
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('chat-images')
+                .getPublicUrl(fileName);
+
+            console.log('Image uploaded successfully:', publicUrl);
+            return publicUrl;
+
+        } catch (error) {
+            console.error('Image Upload Error:', error);
+            return null;
+        }
+    };
+
     return {
         isSupabaseReady,
         supabaseUserId,
         fetchSessions,
         saveSessionToSupabase,
-        deleteSessionFromSupabase
+        deleteSessionFromSupabase,
+        uploadImageToSupabase
     };
 };
