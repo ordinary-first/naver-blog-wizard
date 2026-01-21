@@ -316,67 +316,102 @@ const App = () => {
     }
   };
 
-  // Compress image to prevent localStorage overflow on mobile
-  const compressImage = (file, maxSize = 1200, quality = 0.7) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
+  // Compress image heavily optimized for mobile compatibility
+  const compressImage = (file, maxSize = 800, quality = 0.6) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      // Create URL safely
+      const objectUrl = URL.createObjectURL(file);
 
-      reader.onload = (event) => {
-        const img = new Image();
-
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            let { width, height } = img;
-
-            // Maintain aspect ratio while resizing
-            if (width > height && width > maxSize) {
-              height = (height * maxSize) / width;
-              width = maxSize;
-            } else if (height > maxSize) {
-              width = (width * maxSize) / height;
-              height = maxSize;
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            ctx.drawImage(img, 0, 0, width, height);
-
-            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-            resolve(compressedDataUrl);
-          } catch (err) {
-            reject(new Error('Canvas processing failed: ' + err.message));
+      img.onload = () => {
+        try {
+          // If image is small enough, use original (performance optimization)
+          if (img.width <= maxSize && img.height <= maxSize && file.size < 500 * 1024) {
+            URL.revokeObjectURL(objectUrl);
+            // Convert file to base64 for consistency
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => resolve(objectUrl); // Fallback to blob url
+            reader.readAsDataURL(file);
+            return;
           }
-        };
 
-        img.onerror = () => {
-          reject(new Error('Image load failed'));
-        };
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true }); // Optimization hint
 
-        img.src = event.target.result;
+          let { width, height } = img;
+
+          // Aggressive resizing for mobile
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Clear canvas to prevent black background transparency issues
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Force JPEG to avoid transparency issues rendering as black
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+          URL.revokeObjectURL(objectUrl);
+          resolve(compressedDataUrl);
+        } catch (err) {
+          console.error("Compression Canvas Error:", err);
+          // Fallback: Just try to read original file as DataURL
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(file);
+        }
       };
 
-      reader.onerror = () => {
-        reject(new Error('File read failed'));
+      img.onerror = (err) => {
+        console.error("Image Load Error:", err);
+        // Fallback: Return original file object URL if possible or fail gracefully
+        resolve(objectUrl);
       };
 
-      reader.readAsDataURL(file);
+      img.src = objectUrl;
     });
   };
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    // Show loading state implicitly by processing
     for (const file of files) {
       try {
-        const compressedImage = await compressImage(file, 1200, 0.7);
+        // Log for debugging
+        console.log(`Processing image: ${file.name} (${file.type}, ${file.size} bytes)`);
+
+        // Timeout protection - if compression takes too long (>3s), use original
+        const timeoutPromise = new Promise(resolve =>
+          setTimeout(() => {
+            console.warn("Compression timed out, using fallback");
+            resolve(URL.createObjectURL(file));
+          }, 3000)
+        );
+
+        const compressedImage = await Promise.race([
+          compressImage(file, 800, 0.6),
+          timeoutPromise
+        ]);
+
         handleSendMessage(compressedImage, 'image');
       } catch (err) {
-        console.error('Image compression failed:', err);
-        alert('이미지 처리 중 오류가 발생했습니다. 다른 사진을 시도해주세요.');
+        console.error('Image upload final error:', err);
+        alert('사진을 불러오는데 실패했습니다. 다시 시도해주세요.');
       }
     }
+    // Clear input so same file can be selected again
+    e.target.value = '';
   };
 
   // --- Style Analysis Logic ---
