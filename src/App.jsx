@@ -285,7 +285,8 @@ const App = () => {
 
   // --- Chat Logic ---
   const handleSendMessage = async (text, type = 'text') => {
-    if (!text && type === 'text') return;
+    // Block empty or null content completely
+    if (!text || (typeof text === 'string' && text.trim() === '')) return;
     if (!currentSessionId) return;
 
     const newMessage = {
@@ -373,11 +374,21 @@ const App = () => {
 
       img.onerror = (err) => {
         console.error("Image Load Error:", err);
-        // Fallback: Read original file as base64 (never use blob: URLs)
+        // Fallback: Read original file as base64 directly
         URL.revokeObjectURL(objectUrl);
         const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = () => resolve(null);
+        reader.onload = (e) => {
+          if (e.target.result) {
+            resolve(e.target.result);
+          } else {
+            console.error('FileReader returned empty result');
+            resolve('ERROR_LOADING_IMAGE');
+          }
+        };
+        reader.onerror = () => {
+          console.error('FileReader error in onerror fallback');
+          resolve('ERROR_LOADING_IMAGE');
+        };
         reader.readAsDataURL(file);
       };
 
@@ -411,7 +422,13 @@ const App = () => {
           timeoutPromise
         ]);
 
-        handleSendMessage(compressedImage, 'image');
+        // Only send if we got valid image data
+        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' && compressedImage.startsWith('data:')) {
+          handleSendMessage(compressedImage, 'image');
+        } else {
+          console.error('Invalid image data:', compressedImage?.substring(0, 50));
+          alert('이미지를 처리할 수 없습니다. 다른 사진을 선택해주세요.');
+        }
       } catch (err) {
         console.error('Image upload final error:', err);
         alert('사진을 불러오는데 실패했습니다. 다시 시도해주세요.');
@@ -1374,18 +1391,22 @@ ${chatSummary}`;
                       </div>
                     </div>
                     {currentSession?.messages.map((m) => {
-                      // Force image detection based on content (fixes corrupted type)
-                      const isImage = m.type === 'image' ||
-                        (m.content && (m.content.startsWith('data:image') || m.content.startsWith('blob:')));
+                      // Determine if this is an image message
+                      const contentStr = typeof m.content === 'string' ? m.content : '';
+                      const isImage = m.type === 'image' || contentStr.startsWith('data:image');
+
+                      // Skip rendering if content is empty/invalid
+                      if (!m.content) return null;
+
                       return (
                         <div key={m.id} className={`message ${m.sender} reveal`}>
-                          {!isImage ? (
-                            <div className="bubble">
-                              <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
-                            </div>
-                          ) : (
+                          {isImage ? (
                             <div className="message-image">
                               <img src={m.content} alt="upload" onError={(e) => { e.target.style.display = 'none'; }} />
+                            </div>
+                          ) : (
+                            <div className="bubble">
+                              <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
                             </div>
                           )}
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start', padding: '4px 8px' }}>{m.timestamp}</span>
