@@ -373,8 +373,12 @@ const App = () => {
 
       img.onerror = (err) => {
         console.error("Image Load Error:", err);
-        // Fallback: Return original file object URL if possible or fail gracefully
-        resolve(objectUrl);
+        // Fallback: Read original file as base64 (never use blob: URLs)
+        URL.revokeObjectURL(objectUrl);
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
       };
 
       img.src = objectUrl;
@@ -391,12 +395,15 @@ const App = () => {
         // Log for debugging
         console.log(`Processing image: ${file.name} (${file.type}, ${file.size} bytes)`);
 
-        // Timeout protection - if compression takes too long (>3s), use original
+        // Timeout protection - if compression takes too long (>5s), use FileReader fallback
         const timeoutPromise = new Promise(resolve =>
           setTimeout(() => {
-            console.warn("Compression timed out, using fallback");
-            resolve(URL.createObjectURL(file));
-          }, 3000)
+            console.warn("Compression timed out, using FileReader fallback");
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+          }, 5000)
         );
 
         const compressedImage = await Promise.race([
@@ -1366,20 +1373,25 @@ ${chatSummary}`;
                         </div>
                       </div>
                     </div>
-                    {currentSession?.messages.map((m) => (
-                      <div key={m.id} className={`message ${m.sender} reveal`}>
-                        {m.type === 'text' ? (
-                          <div className="bubble">
-                            <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
-                          </div>
-                        ) : (
-                          <div className="message-image">
-                            <img src={m.content} alt="upload" onError={(e) => { e.target.style.display = 'none'; }} />
-                          </div>
-                        )}
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start', padding: '4px 8px' }}>{m.timestamp}</span>
-                      </div>
-                    ))}
+                    {currentSession?.messages.map((m) => {
+                      // Force image detection based on content (fixes corrupted type)
+                      const isImage = m.type === 'image' ||
+                        (m.content && (m.content.startsWith('data:image') || m.content.startsWith('blob:')));
+                      return (
+                        <div key={m.id} className={`message ${m.sender} reveal`}>
+                          {!isImage ? (
+                            <div className="bubble">
+                              <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                            </div>
+                          ) : (
+                            <div className="message-image">
+                              <img src={m.content} alt="upload" onError={(e) => { e.target.style.display = 'none'; }} />
+                            </div>
+                          )}
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start', padding: '4px 8px' }}>{m.timestamp}</span>
+                        </div>
+                      );
+                    })}
                     <div ref={chatEndRef} />
                   </div>
                 </div>
