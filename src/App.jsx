@@ -319,36 +319,50 @@ const App = () => {
   // Compress image to prevent localStorage overflow on mobile
   const compressImage = (file, maxSize = 1200, quality = 0.7) => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const reader = new FileReader();
 
-      img.onload = () => {
-        let { width, height } = img;
+      reader.onload = (event) => {
+        const img = new Image();
 
-        // Maintain aspect ratio while resizing
-        if (width > height && width > maxSize) {
-          height = (height * maxSize) / width;
-          width = maxSize;
-        } else if (height > maxSize) {
-          width = (width * maxSize) / height;
-          height = maxSize;
-        }
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
 
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, 0, 0, width, height);
+            let { width, height } = img;
 
-        // Clean up object URL
-        URL.revokeObjectURL(img.src);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+            // Maintain aspect ratio while resizing
+            if (width > height && width > maxSize) {
+              height = (height * maxSize) / width;
+              width = maxSize;
+            } else if (height > maxSize) {
+              width = (width * maxSize) / height;
+              height = maxSize;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressedDataUrl);
+          } catch (err) {
+            reject(new Error('Canvas processing failed: ' + err.message));
+          }
+        };
+
+        img.onerror = () => {
+          reject(new Error('Image load failed'));
+        };
+
+        img.src = event.target.result;
       };
 
-      img.onerror = () => {
-        URL.revokeObjectURL(img.src);
-        reject(new Error('Image load failed'));
+      reader.onerror = () => {
+        reject(new Error('File read failed'));
       };
-      img.src = URL.createObjectURL(file);
+
+      reader.readAsDataURL(file);
     });
   };
 
@@ -1319,7 +1333,15 @@ ${chatSummary}`;
                     </div>
                     {currentSession?.messages.map((m) => (
                       <div key={m.id} className={`message ${m.sender} reveal`}>
-                        <div className="bubble">{m.type === 'text' ? <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div> : <div className="message-image"><img src={m.content} alt="upload" /></div>}</div>
+                        {m.type === 'text' ? (
+                          <div className="bubble">
+                            <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                          </div>
+                        ) : (
+                          <div className="message-image">
+                            <img src={m.content} alt="upload" onError={(e) => { e.target.style.display = 'none'; }} />
+                          </div>
+                        )}
                         <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start', padding: '4px 8px' }}>{m.timestamp}</span>
                       </div>
                     ))}

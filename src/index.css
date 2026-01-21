@@ -225,11 +225,15 @@ body {
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid var(--glass-border);
+  background: var(--bg-card);
+  min-height: 50px;
 }
 
 .message-image img {
   max-width: 100%;
+  width: 100%;
   display: block;
+  background: var(--bg-card);
 }
 
 /* Layout Components */
