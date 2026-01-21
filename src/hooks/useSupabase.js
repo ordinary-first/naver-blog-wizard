@@ -140,9 +140,9 @@ export const useSupabase = (naverUser) => {
                     .map(m => ({
                         id: m.id,
                         sender: m.role,
-                        type: 'text', // Default to text, adjust if needed
+                        type: m.type || 'text', // Preserve message type, default to text if not specified
                         content: m.content,
-                        timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        timestamp: m.timestamp || new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     })),
                 post: s.post_data || { title: '', content: [], tags: [] } // Load post data or default
             }));
@@ -176,13 +176,23 @@ export const useSupabase = (naverUser) => {
 
             // 2. Messages upsert
             if (session.messages && session.messages.length > 0) {
-                const messagesToUpsert = session.messages.map(m => ({
-                    id: typeof m.id === 'string' ? m.id : crypto.randomUUID(),
-                    session_id: session.id,
-                    role: m.sender || m.role,
-                    content: m.content,
-                    created_at: m.createdAt || new Date().toISOString()
-                }));
+                const messagesToUpsert = session.messages.map(m => {
+                    // For image messages, don't store the base64 content (too large)
+                    // Instead, store a placeholder or metadata
+                    const content = m.type === 'image'
+                        ? `[IMAGE_${m.id}]` // Placeholder instead of base64
+                        : m.content;
+
+                    return {
+                        id: typeof m.id === 'string' ? m.id : crypto.randomUUID(),
+                        session_id: session.id,
+                        role: m.sender || m.role,
+                        type: m.type || 'text', // Preserve message type
+                        content: content,
+                        timestamp: m.timestamp,
+                        created_at: m.createdAt || new Date().toISOString()
+                    };
+                });
 
                 const { error: msgError } = await supabase
                     .from('chat_messages')

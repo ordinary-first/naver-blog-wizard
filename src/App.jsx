@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
   Send, Image as ImageIcon, Sparkles, X, Copy, Settings, Trash2,
@@ -10,6 +10,12 @@ import {
 import './index.css';
 import HomeView from './HomeView';
 import { useSupabase } from './hooks/useSupabase';
+
+// Constants
+const GEMINI_MODEL = "gemini-2.0-flash";
+const IMAGE_MAX_SIZE = 1024; // Increased from 800 for better quality
+const IMAGE_QUALITY = 0.7; // Increased from 0.6 for better quality
+const IMAGE_COMPRESSION_TIMEOUT = 10000; // Increased from 5000ms to 10000ms
 
 const App = () => {
   // Navigation & Session State
@@ -64,10 +70,13 @@ const App = () => {
           if (savedSessions) {
             const localSessions = JSON.parse(savedSessions);
             setSessions(localSessions);
-            // Migrate localStorage data to Supabase
-            localSessions.forEach(session => {
-              saveSessionToSupabase({ ...session, id: session.id.toString().includes('-') ? session.id : crypto.randomUUID() });
-            });
+            // Migrate localStorage data to Supabase (with proper async handling)
+            Promise.all(localSessions.map(session =>
+              saveSessionToSupabase({
+                ...session,
+                id: session.id.toString().includes('-') ? session.id : crypto.randomUUID()
+              })
+            )).catch(err => console.error('Migration error:', err));
           }
         }
         setIsDataLoaded(true);
@@ -105,6 +114,15 @@ const App = () => {
   // ----------------------------
   const longPressTimer = useRef(null);
 
+  // Cleanup longPressTimer on component unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
+
   // Undo/Redo History for Post Editor
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -122,15 +140,40 @@ const App = () => {
 
   // Load Initial Data
   useEffect(() => {
+    // Load API settings with error handling
     const savedSettings = localStorage.getItem('wizard_settings');
-    if (savedSettings) setApiKeys(JSON.parse(savedSettings));
+    if (savedSettings) {
+      try {
+        setApiKeys(JSON.parse(savedSettings));
+      } catch (err) {
+        console.error('Failed to parse saved settings:', err);
+        localStorage.removeItem('wizard_settings');
+      }
+    }
 
+    // Load Naver user with error handling
     const savedNaverUser = localStorage.getItem('naver_user');
-    if (savedNaverUser) setNaverUser(JSON.parse(savedNaverUser));
+    if (savedNaverUser) {
+      try {
+        setNaverUser(JSON.parse(savedNaverUser));
+      } catch (err) {
+        console.error('Failed to parse naver user:', err);
+        localStorage.removeItem('naver_user');
+      }
+    }
 
+    // Load representative IDs with error handling
     const savedRepIds = localStorage.getItem('wizard_representative_ids');
-    if (savedRepIds) setRepresentativeIds(JSON.parse(savedRepIds));
+    if (savedRepIds) {
+      try {
+        setRepresentativeIds(JSON.parse(savedRepIds));
+      } catch (err) {
+        console.error('Failed to parse representative IDs:', err);
+        localStorage.removeItem('wizard_representative_ids');
+      }
+    }
 
+    // Load style prompt (no JSON parsing needed)
     const savedStylePrompt = localStorage.getItem('wizard_user_style');
     if (savedStylePrompt) setUserStylePrompt(savedStylePrompt);
 
@@ -140,9 +183,31 @@ const App = () => {
       setIsDarkMode(savedTheme === 'dark');
     }
 
+    // Load sessions with error handling
     const savedSessions = localStorage.getItem('wizard_sessions');
     if (savedSessions) {
-      setSessions(JSON.parse(savedSessions));
+      try {
+        setSessions(JSON.parse(savedSessions));
+      } catch (err) {
+        console.error('Failed to parse saved sessions:', err);
+        localStorage.removeItem('wizard_sessions');
+        // Initialize with default session on error
+        const initialSession = {
+          id: Date.now(),
+          title: '나의 첫 기록 ✍️',
+          status: 'active',
+          messages: [{
+            id: 1,
+            sender: 'ai',
+            type: 'text',
+            content: '안녕하세요! 당신의 소중한 순간을 블로그로 만들어드릴 AI 위저드입니다. 사진이나 오늘 있었던 일들을 편하게 말씀해 주세요!',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }],
+          post: { title: '', content: [], tags: [] },
+          createdAt: new Date().toISOString()
+        };
+        setSessions([initialSession]);
+      }
     } else {
       const initialSession = {
         id: Date.now(),
@@ -174,6 +239,38 @@ const App = () => {
 
 
 
+  // Naver OAuth callback handler - moved after processNaverLogin definition
+  const handleNaverCallback = useCallback(async (code, state) => {
+    try {
+      // Note: In a real production app, token exchange MUST happen on the server to avoid CORS and protect Client Secret.
+      const tokenUrl = `/oauth2.0/token?grant_type=authorization_code&client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&code=${code}&state=${state}`;
+
+      const response = await fetch(tokenUrl);
+      const data = await response.json();
+
+      if (data.access_token) {
+        const profileResponse = await fetch(`/v1/nid/me`, {
+          headers: { Authorization: `Bearer ${data.access_token}` }
+        });
+        const profileData = await profileResponse.json();
+
+        if (profileData.response) {
+          const user = {
+            nickname: profileData.response.nickname,
+            profileImage: profileData.response.profile_image,
+            blogTitle: `${profileData.response.nickname}님의 블로그`
+          };
+          setNaverUser(user);
+          localStorage.setItem('naver_user', JSON.stringify(user));
+          alert(`${user.nickname}님, 환영합니다!`);
+        }
+      }
+    } catch (err) {
+      console.error('Naver Login Error:', err);
+      alert('네이버 로그인 처리 중 오류가 발생했습니다. CORS 제약으로 인해 서버 프록시가 필요할 수 있습니다.');
+    }
+  }, []);
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -183,9 +280,9 @@ const App = () => {
     if (code && state && state === savedState) {
       // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      processNaverLogin(code, state);
+      handleNaverCallback(code, state);
     }
-  }, []);
+  }, [handleNaverCallback]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -243,40 +340,6 @@ const App = () => {
     window.location.href = authUrl;
   };
 
-  const processNaverLogin = async (code, state) => {
-    try {
-      // Note: In a real production app, token exchange MUST happen on the server to avoid CORS and protect Client Secret.
-      // For this wizard, we'll try to fetch via a proxy or provide a clear instruction.
-      // Use local Vite proxy to avoid CORS
-      const tokenUrl = `/oauth2.0/token?grant_type=authorization_code&client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&code=${code}&state=${state}`;
-
-      const response = await fetch(tokenUrl);
-      const data = await response.json();
-
-      if (data.access_token) {
-        // Use /v1 proxy for profile fetching
-        const profileResponse = await fetch(`/v1/nid/me`, {
-          headers: { Authorization: `Bearer ${data.access_token}` }
-        });
-        const profileData = await profileResponse.json();
-
-        if (profileData.response) {
-          const user = {
-            nickname: profileData.response.nickname,
-            profileImage: profileData.response.profile_image,
-            blogTitle: `${profileData.response.nickname}님의 블로그` // Placeholder as direct blog name fetch needs search API
-          };
-          setNaverUser(user);
-          localStorage.setItem('naver_user', JSON.stringify(user));
-          alert(`${user.nickname}님, 환영합니다!`);
-        }
-      }
-    } catch (err) {
-      console.error('Naver Login Error:', err);
-      alert('네이버 로그인 처리 중 오류가 발생했습니다. CORS 제약으로 인해 서버 프록시가 필요할 수 있습니다.');
-    }
-  };
-
   const handleNaverLogout = () => {
     setNaverUser(null);
     localStorage.removeItem('naver_user');
@@ -297,12 +360,15 @@ const App = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, newMessage] } : s));
+    console.log('Creating new message:', { id: newMessage.id, type: newMessage.type, contentPreview: text?.substring(0, 50) });
+
+    // Collect all messages to add in a single batch to avoid race conditions
+    const newMessages = [newMessage];
 
     if (aiResponsesEnabled && apiKeys.gemini) {
       try {
         const genAI = new GoogleGenerativeAI(apiKeys.gemini);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
         const reactionPrompt = `다정한 친구이자 블로그 도우미로서 자연스러운 리액션을 해주세요. 1~2문장 정도로 부드럽게 공감해 주되, 너무 길지는 않게 답변하세요. 질문은 하지 마세요. 사용자 메시지: ${type === 'text' ? text : '[사진을 보냈습니다]'}`;
         const result = await model.generateContent(reactionPrompt);
         const aiMessage = {
@@ -312,13 +378,28 @@ const App = () => {
           content: result.response.text(),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, aiMessage] } : s));
-      } catch (err) { console.error(err); }
+        newMessages.push(aiMessage);
+      } catch (err) {
+        console.error('AI response error:', err);
+        // Add error message for user feedback
+        const errorMessage = {
+          id: Date.now() + 1,
+          sender: 'ai',
+          type: 'text',
+          content: '죄송합니다, 응답 생성 중 오류가 발생했습니다.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        newMessages.push(errorMessage);
+      }
     }
+
+    // Update sessions with all messages at once
+    setSessions(prev => prev.map(s => s.id === currentSessionId ?
+      { ...s, messages: [...s.messages, ...newMessages] } : s));
   };
 
   // Compress image heavily optimized for mobile compatibility
-  const compressImage = (file, maxSize = 800, quality = 0.6) => {
+  const compressImage = (file, maxSize = IMAGE_MAX_SIZE, quality = IMAGE_QUALITY) => {
     return new Promise((resolve) => {
       const img = new Image();
       // Create URL safely
@@ -409,7 +490,7 @@ const App = () => {
         // Log for debugging
         console.log(`Processing image: ${file.name} (${file.type}, ${file.size} bytes)`);
 
-        // Timeout protection - if compression takes too long (>5s), use FileReader fallback
+        // Timeout protection - if compression takes too long, use FileReader fallback
         const timeoutPromise = new Promise(resolve =>
           setTimeout(() => {
             console.warn("Compression timed out, using FileReader fallback");
@@ -420,19 +501,21 @@ const App = () => {
               resolve('ERROR_TIMEOUT');
             };
             reader.readAsDataURL(file);
-          }, 5000)
+          }, IMAGE_COMPRESSION_TIMEOUT)
         );
 
         const compressedImage = await Promise.race([
-          compressImage(file, 800, 0.6),
+          compressImage(file, IMAGE_MAX_SIZE, IMAGE_QUALITY),
           timeoutPromise
         ]);
 
         // Only send if we got valid image data
-        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' && compressedImage.startsWith('data:')) {
+        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' && compressedImage !== 'ERROR_TIMEOUT' && compressedImage.startsWith('data:')) {
           handleSendMessage(compressedImage, 'image');
+          console.log('Image sent successfully');
         } else {
           console.error('Invalid image data:', compressedImage?.substring(0, 50));
+          console.error('Full error value:', compressedImage);
           alert('이미지를 처리할 수 없습니다. 다른 사진을 선택해주세요.');
         }
       } catch (err) {
@@ -462,7 +545,7 @@ const App = () => {
     setIsAnalyzingStyle(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKeys.gemini);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
       const prompt = `
 당신은 최고의 문체 분석가입니다. 다음 텍스트들은 사용자가 직접 쓴 블로그 글입니다.
@@ -503,7 +586,7 @@ ${validRefs.map((t, i) => `--- 글 #${i + 1} ---\n${t}`).join('\n\n')}
     setIsGenerating(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKeys.gemini);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const userMessages = currentSession.messages.filter(m => m.sender === 'user');
       const chatSummary = userMessages.map(m => m.type === 'text' ? `[TEXT]: ${m.content}` : `[IMAGE]`).join('\n');
 
@@ -539,7 +622,20 @@ ${chatSummary}`;
       let text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) text = jsonMatch[0].replace(/```json/g, '').replace(/```/g, '').trim();
-      const data = JSON.parse(text);
+
+      // Parse and validate JSON response
+      let data;
+      try {
+        data = JSON.parse(text);
+        // Validate required fields
+        if (!data.title || !Array.isArray(data.content_blocks) || !Array.isArray(data.tags)) {
+          throw new Error('AI 응답 형식이 올바르지 않습니다.');
+        }
+      } catch (parseErr) {
+        console.error('Failed to parse AI response:', parseErr);
+        alert('AI 응답 형식이 올바르지 않습니다. 다시 시도해주세요.');
+        return;
+      }
 
       const chatImages = userMessages.filter(m => m.type === 'image');
       const finalContent = [];
@@ -648,7 +744,11 @@ ${chatSummary}`;
   // --- Editor Logic ---
   const pushToHistory = (post) => {
     const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(JSON.parse(JSON.stringify(post)));
+    // Use structuredClone if available, fallback to JSON parse/stringify
+    const clonedPost = typeof structuredClone !== 'undefined'
+      ? structuredClone(post)
+      : JSON.parse(JSON.stringify(post));
+    newHistory.push(clonedPost);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
   };
@@ -703,8 +803,15 @@ ${chatSummary}`;
     setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, userMsg] } : s));
     try {
       const genAI = new GoogleGenerativeAI(apiKeys.gemini);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const currentPost = currentSession?.post;
+
+      // Add null check for currentPost
+      if (!currentPost || !currentPost.content) {
+        console.error('Post data not available');
+        throw new Error('포스트 데이터를 찾을 수 없습니다.');
+      }
+
       if (editingBlockId) {
         const targetBlock = currentPost.content.find(b => b.id === editingBlockId);
         const prompt = `블로그 에디터 AI입니다. 수정 대상을 요청에 따라 고치세요. 대상: ${targetBlock.value} 요청: ${request}. 수정본만 출력하세요.`;
@@ -726,7 +833,16 @@ ${chatSummary}`;
       }
       const aiMsg = { id: Date.now() + 1, sender: 'ai', type: 'text', content: '✅ 수정 완료!', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
       setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, aiMsg] } : s));
-    } catch (err) { console.error(err); } finally { setEditingBlockId(null); setIsEditing(false); }
+    } catch (err) {
+      console.error('Edit request error:', err);
+      alert(err.message || '수정 중 오류가 발생했습니다. 다시 시도해주세요.');
+      // Remove the user message on error
+      setSessions(prev => prev.map(s => s.id === currentSessionId ?
+        { ...s, messages: s.messages.slice(0, -1) } : s));
+    } finally {
+      setEditingBlockId(null);
+      setIsEditing(false);
+    }
   };
 
   const addTag = () => {
@@ -785,7 +901,7 @@ ${chatSummary}`;
       <div className="reveal" style={{ padding: '1rem 1.2rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Compact Header */}
         <div style={{ marginBottom: '1.5rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.8rem' }}>
-          <img src={naverUser.profileImage} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }} alt="profile" />
+          <img src={naverUser.profileImage || 'https://via.placeholder.com/40'} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }} alt="profile" />
           <div style={{ textAlign: 'left' }}>
             <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)', display: 'block' }}>안녕하세요,</span>
             <h1 className="premium-gradient" style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>{naverUser.blogTitle}님</h1>
@@ -1315,7 +1431,7 @@ ${chatSummary}`;
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
           {naverUser && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
-              <img src={naverUser.profileImage} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
+              <img src={naverUser.profileImage || 'https://via.placeholder.com/20'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
               <span className="mobile-hide-text" style={{ fontSize: '0.75rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
               <button
                 onClick={handleNaverLogout}
@@ -1408,7 +1524,16 @@ ${chatSummary}`;
                         <div key={m.id} className={`message ${m.sender} reveal`}>
                           {isImage ? (
                             <div className="message-image">
-                              <img src={m.content} alt="upload" onError={(e) => { e.target.style.display = 'none'; }} />
+                              <img
+                                src={m.content}
+                                alt="upload"
+                                onLoad={(e) => console.log('Image loaded successfully:', m.id)}
+                                onError={(e) => {
+                                  console.error('Image load failed:', m.id, m.content?.substring(0, 100));
+                                  e.target.style.opacity = '0.3';
+                                  e.target.alt = '이미지를 불러올 수 없습니다';
+                                }}
+                              />
                             </div>
                           ) : (
                             <div className="bubble">
