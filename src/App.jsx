@@ -332,7 +332,10 @@ const App = () => {
             // Convert file to base64 for consistency
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => resolve(objectUrl); // Fallback to blob url
+            reader.onerror = () => {
+              console.error('FileReader error for small image');
+              resolve('ERROR_SMALL_IMAGE');
+            };
             reader.readAsDataURL(file);
             return;
           }
@@ -412,7 +415,10 @@ const App = () => {
             console.warn("Compression timed out, using FileReader fallback");
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => resolve(null);
+            reader.onerror = () => {
+              console.error('FileReader timeout fallback error');
+              resolve('ERROR_TIMEOUT');
+            };
             reader.readAsDataURL(file);
           }, 5000)
         );
@@ -1419,7 +1425,7 @@ ${chatSummary}`;
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, var(--bg-dark) 80%, transparent)', padding: '1.5rem 1rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
                   {!isGenerating && currentSession?.messages.filter(m => m.sender === 'user').length > 0 && <button className="button-hover reveal cta-style" onClick={generateBlogPost} style={{ background: 'var(--naver-green)', color: 'white', padding: '1rem 2.5rem', borderRadius: '50px', fontWeight: '900', border: 'none', display: 'flex', alignItems: 'center', gap: '0.8rem' }}><Sparkles size={20} /> AI 블로그 포스팅 생성</button>}
                   <div className="glass-heavy input-glow" style={{ maxWidth: '750px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: window.innerWidth < 600 ? '0.4rem 0.5rem 0.4rem 0.8rem' : '0.6rem 1rem', gap: window.innerWidth < 600 ? '0.5rem' : '0.8rem', border: '1px solid var(--glass-border)' }}>
-                    <label className="button-hover" style={{ padding: '0.5rem', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', flexShrink: 0 }}><ImageIcon size={22} /><input type="file" multiple hidden onChange={handleImageUpload} /></label>
+                    <label className="button-hover" style={{ padding: '0.5rem', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', flexShrink: 0 }}><ImageIcon size={22} /><input type="file" accept="image/*" multiple hidden onChange={handleImageUpload} /></label>
                     <input type="text" placeholder={window.innerWidth < 600 ? "오늘 무엇을 하셨나요?" : "오늘 무엇을 하셨나요? AI가 블로그 글로 만들어드릴게요."} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: 'var(--text-main)', padding: '0.6rem 0', fontSize: '1rem', outline: 'none' }} value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && (handleSendMessage(inputText), setInputText(''))} />
                     <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: '0.7rem', borderRadius: '50%', border: 'none', display: 'flex', flexShrink: 0 }} onClick={() => { handleSendMessage(inputText); setInputText(''); }} disabled={!inputText.trim()}><Send size={20} /></button>
                   </div>

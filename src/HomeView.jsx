@@ -234,7 +234,16 @@ const HomeView = ({
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <h3 style={{ fontSize: '0.9rem', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem', color: 'var(--text-main)' }}>{s.title}</h3>
                                 {s.status === 'active' ? (
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.messages[s.messages.length - 1]?.content}</p>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {(() => {
+                                            const lastMsg = s.messages[s.messages.length - 1];
+                                            if (!lastMsg?.content) return '';
+                                            if (lastMsg.type === 'image' || (typeof lastMsg.content === 'string' && lastMsg.content.startsWith('data:image'))) {
+                                                return '📷 사진';
+                                            }
+                                            return lastMsg.content;
+                                        })()}
+                                    </p>
                                 ) : (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(s.publishedAt).toLocaleDateString()}</span>
