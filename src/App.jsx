@@ -420,6 +420,7 @@ ${validRefs.map((t, i) => `--- 글 #${i + 1} ---\n${t}`).join('\n\n')}
   // --- Blog Generation ---
   const generateBlogPost = async () => {
     if (!apiKeys.gemini) { alert('서비스 설정 오류: API 키가 구성되지 않았습니다.'); return; }
+    if (!currentSession) { alert('세션을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
     setIsGenerating(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKeys.gemini);
