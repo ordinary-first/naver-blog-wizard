@@ -1834,20 +1834,3 @@ ${chatSummary}`;
 };
 
 export default App;
-          </div >
-        )}
-
-{
-  view === 'home' && (
-    <button className="cta-button button-hover reveal" onClick={createNewSession} style={{ animationDelay: '0.3s', padding: '0.8rem 1.5rem', fontSize: '0.9rem', borderRadius: '16px' }}>
-      <Plus size={18} />
-      일상을 기록하기
-    </button>
-  )
-}
-      </main >
-    </div >
-  );
-};
-
-export default App;
