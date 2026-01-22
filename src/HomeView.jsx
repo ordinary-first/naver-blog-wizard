@@ -39,6 +39,7 @@ const HomeView = ({
             // Never hide header when search is open
             if (isSearchOpen) {
                 if (setHeaderVisible) setHeaderVisible(true);
+                setAppHeaderVisible(true);
                 return;
             }
 
@@ -46,11 +47,18 @@ const HomeView = ({
                 window.requestAnimationFrame(() => {
                     const currentScrollY = e.target.scrollTop;
 
-                    // Hide header when scrolling down, show when scrolling up
-                    if (currentScrollY > lastScrollY && currentScrollY > 60) {
+                    // Always show header at top
+                    if (currentScrollY < 10) {
+                        if (setHeaderVisible) setHeaderVisible(true);
+                        setAppHeaderVisible(true);
+                    }
+                    // Scrolling down: hide header (only after 80px scroll)
+                    else if (currentScrollY > lastScrollY && currentScrollY > 80) {
                         if (setHeaderVisible) setHeaderVisible(false);
                         setAppHeaderVisible(false);
-                    } else if (currentScrollY < lastScrollY) {
+                    }
+                    // Scrolling up: show header immediately
+                    else if (currentScrollY < lastScrollY) {
                         if (setHeaderVisible) setHeaderVisible(true);
                         setAppHeaderVisible(true);
                     }
