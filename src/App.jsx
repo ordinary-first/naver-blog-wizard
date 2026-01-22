@@ -1435,7 +1435,10 @@ ${chatSummary}`;
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
         >
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
-          <div><h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1></div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+            <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r1</span>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
           {naverUser && (
@@ -1472,7 +1475,7 @@ ${chatSummary}`;
           setRepresentativeIds={setRepresentativeIds} contextMenu={contextMenu}
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
         /> : view === 'settings' ? <SettingsView /> : (
-          <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '1rem' }}>
             <div className="tab-container" style={{ marginBottom: '1rem' }}>
               <div className={`tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}><MessageCircle size={14} /> 대화</div>
               <div className={`tab ${activeTab === 'post' ? 'active' : ''} ${hasNewPostContent ? 'has-new' : ''}`} onClick={() => { setActiveTab('post'); setHasNewPostContent(false); }}><FileText size={14} /> 글</div>

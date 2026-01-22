@@ -18,7 +18,8 @@
       "Bash(start https://supabase.com/dashboard/project/zjmtrxmplxteedeelyvm/sql/new)",
       "Bash(curl:*)",
       "Bash(start https://naver-blog-wizard.vercel.app/)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: add Supabase storage bucket SQL and update Claude settings\n\n- Add create-storage-bucket.sql with policies for chat-images bucket\n- Update Claude settings with recent command history\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: add Supabase storage bucket SQL and update Claude settings\n\n- Add create-storage-bucket.sql with policies for chat-images bucket\n- Update Claude settings with recent command history\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)"
     ]
   }
 }
