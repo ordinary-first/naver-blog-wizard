@@ -11,7 +11,14 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: resolve critical bugs - Supabase storage, image compression, and empty src warnings\n\n- Fix Supabase storage error by using placeholders for large base64 image data\n- Increase image compression timeout from 5s to 10s and improve quality settings\n- Fix empty src attribute warnings by providing fallback placeholder images\n- Add better error handling throughout the app\n- Improve code structure and add missing useCallback/useMemo optimizations\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push)",
       "Bash(dir \"C:\\\\Users\\\\myo97\\\\Pictures\" /b)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: resolve localStorage quota exceeded error by uploading images to Supabase Storage\n\n- Add uploadImageToSupabase function to upload images and return public URLs\n- Modify handleImageUpload to upload to Supabase instead of storing base64 in localStorage\n- Update saveSessionToSupabase to store image URLs directly instead of placeholders\n- This fixes QuotaExceededError when uploading images\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(start https://supabase.com/dashboard/project/zjmtrxmplxteedeelyvm/storage/buckets)",
+      "Bash(start https://supabase.com/dashboard/project/zjmtrxmplxteedeelyvm/sql/new)",
+      "Bash(curl:*)",
+      "Bash(start https://naver-blog-wizard.vercel.app/)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: add Supabase storage bucket SQL and update Claude settings\n\n- Add create-storage-bucket.sql with policies for chat-images bucket\n- Update Claude settings with recent command history\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
