@@ -24,10 +24,20 @@ const HomeView = ({
 }) => {
     const longPressTimer = useRef(null);
     const scrollContainerRef = useRef(null);
+    const headerRef = useRef(null);
     const [headerVisible, setHeaderVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
+    const [headerHeight, setHeaderHeight] = useState(180);
 
-    // Header auto-hide on scroll
+    // Measure header height dynamically
+    useEffect(() => {
+        if (headerRef.current) {
+            const height = headerRef.current.offsetHeight;
+            setHeaderHeight(height);
+        }
+    }, [isSearchOpen, naverUser]); // Recalculate when search state or user changes
+
+    // Header auto-hide on scroll (DISABLED when search is open)
     useEffect(() => {
         const scrollContainer = scrollContainerRef.current;
         if (!scrollContainer) return;
@@ -35,6 +45,12 @@ const HomeView = ({
         let ticking = false;
 
         const handleScroll = (e) => {
+            // ✅ CRITICAL: Never hide header when search is open
+            if (isSearchOpen) {
+                if (!headerVisible) setHeaderVisible(true);
+                return;
+            }
+
             if (!ticking) {
                 window.requestAnimationFrame(() => {
                     const currentScrollY = e.target.scrollTop;
@@ -57,7 +73,7 @@ const HomeView = ({
 
         scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
         return () => scrollContainer.removeEventListener('scroll', handleScroll);
-    }, [lastScrollY]);
+    }, [lastScrollY, isSearchOpen, headerVisible]);
 
     const published = sessions.filter(s => s.status === 'published');
     const active = sessions.filter(s => s.status === 'active');
@@ -86,23 +102,41 @@ const HomeView = ({
         setVisibleCount(5);
         setIsSearchOpen(false);
         setSearchQuery('');
+        setHeaderVisible(true); // ✅ Always show header when changing tabs
+    };
+
+    // ✅ Show header when opening search
+    const handleSearchOpen = () => {
+        setIsSearchOpen(true);
+        setVisibleCount(5);
+        setHeaderVisible(true); // Force header visible
+    };
+
+    // ✅ Show header when closing search
+    const handleSearchClose = () => {
+        setIsSearchOpen(false);
+        setSearchQuery('');
+        setHeaderVisible(true); // Force header visible
     };
 
     return (
         <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
             {/* Fixed Header */}
-            <div style={{
-                position: 'fixed',
-                top: headerVisible ? 0 : '-100px',
-                left: 0,
-                right: 0,
-                zIndex: 100,
-                background: 'var(--bg-main)',
-                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                padding: '1rem 1.2rem',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                backdropFilter: 'blur(10px)'
-            }}>
+            <div
+                ref={headerRef}
+                style={{
+                    position: 'fixed',
+                    top: headerVisible ? 0 : `-${headerHeight}px`,
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    background: 'var(--bg-main)',
+                    transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    padding: '1rem 1.2rem',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
                 {/* Compact Header */}
                 <div style={{ marginBottom: '1rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.8rem', maxWidth: '850px', margin: '0 auto 1rem' }}>
                     <img src={naverUser?.profileImage || 'https://via.placeholder.com/40'} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }} alt="profile" />
@@ -148,7 +182,7 @@ const HomeView = ({
                         <button onClick={() => setSearchQuery('')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}><X size={16} /></button>
                     )}
                     <button
-                        onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
+                        onClick={handleSearchClose}
                         style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: 'var(--text-dim)', cursor: 'pointer', padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600', whiteSpace: 'nowrap' }}
                     >
                         닫기
@@ -161,8 +195,7 @@ const HomeView = ({
                     width: '100%',
                     opacity: isSearchOpen ? 0 : 1,
                     transition: 'opacity 0.2s',
-                    pointerEvents: isSearchOpen ? 'none' : 'auto',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)'
+                    pointerEvents: isSearchOpen ? 'none' : 'auto'
                 }}>
                     <button
                         onClick={() => handleTabChange('active')}
@@ -202,7 +235,7 @@ const HomeView = ({
                     {/* Search Trigger Button */}
                     <button
                         className="button-hover"
-                        onClick={() => { setIsSearchOpen(true); setVisibleCount(5); }}
+                        onClick={handleSearchOpen}
                         style={{
                             padding: '0 1rem',
                             background: 'transparent',
@@ -226,7 +259,7 @@ const HomeView = ({
                 className="reveal"
                 style={{
                     padding: '1rem 1.2rem',
-                    paddingTop: '180px', // Space for fixed header
+                    paddingTop: `${headerHeight + 20}px`, // ✅ Dynamic header height + spacing
                     height: '100%',
                     overflowY: 'auto',
                     paddingBottom: '160px',
