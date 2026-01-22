@@ -26,6 +26,7 @@ const HomeView = ({
     const longPressTimer = useRef(null);
     const scrollContainerRef = useRef(null);
     const [lastScrollY, setLastScrollY] = useState(0);
+    const [appHeaderVisible, setAppHeaderVisible] = useState(true);
 
     // Auto-hide App.jsx header on scroll
     useEffect(() => {
@@ -48,8 +49,10 @@ const HomeView = ({
                     // Hide header when scrolling down, show when scrolling up
                     if (currentScrollY > lastScrollY && currentScrollY > 60) {
                         if (setHeaderVisible) setHeaderVisible(false);
+                        setAppHeaderVisible(false);
                     } else if (currentScrollY < lastScrollY) {
                         if (setHeaderVisible) setHeaderVisible(true);
+                        setAppHeaderVisible(true);
                     }
 
                     setLastScrollY(currentScrollY);
@@ -67,17 +70,20 @@ const HomeView = ({
     const handleSearchOpen = () => {
         setIsSearchOpen(true);
         if (setHeaderVisible) setHeaderVisible(true);
+        setAppHeaderVisible(true);
     };
 
     const handleSearchClose = () => {
         setIsSearchOpen(false);
         if (setHeaderVisible) setHeaderVisible(true);
+        setAppHeaderVisible(true);
     };
 
     // Reset header when tab changes
     const handleTabChange = (tab) => {
         setSessionTab(tab);
         if (setHeaderVisible) setHeaderVisible(true);
+        setAppHeaderVisible(true);
     };
 
     const active = sessions.filter(s => s.publishedDate === null);
@@ -118,26 +124,27 @@ const HomeView = ({
             {/* Fixed Header: Profile + Tabs */}
             <div style={{
                 position: 'fixed',
-                top: '60px', // Below App.jsx header
+                top: appHeaderVisible ? '60px' : '0px', // Moves up when App header hides
                 left: 0,
                 right: 0,
                 zIndex: 90,
                 background: 'var(--bg-main)',
-                padding: '1rem 1rem 0.5rem',
+                padding: '0.8rem 1rem 0.4rem',
                 borderBottom: '1px solid rgba(255,255,255,0.05)',
                 backdropFilter: 'blur(10px)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}>
                 {/* Profile Section */}
                 <div style={{
-                    marginBottom: '0.8rem',
+                    marginBottom: '0.6rem',
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'flex-start',
                     gap: '0.8rem',
                     maxWidth: '850px',
-                    margin: '0 auto 0.8rem'
+                    margin: '0 auto 0.6rem'
                 }}>
                     <img
                         src={naverUser?.profileImage || 'https://via.placeholder.com/40'}
@@ -298,7 +305,7 @@ const HomeView = ({
                 style={{
                     height: '100%',
                     overflowY: 'auto',
-                    paddingTop: '170px', // Profile + Tabs height
+                    paddingTop: '155px', // Profile + Tabs height (reduced)
                     paddingBottom: '100px'
                 }}
             >
