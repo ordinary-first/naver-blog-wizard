@@ -88,12 +88,15 @@ const App = () => {
 
   // Header auto-hide on scroll (mobile-friendly)
   useEffect(() => {
+    const scrollContainer = document.querySelector('.scroll-container');
+    if (!scrollContainer) return;
+
     let ticking = false;
 
-    const handleScroll = () => {
+    const handleScroll = (e) => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY;
+          const currentScrollY = e.target.scrollTop;
 
           // Show header when scrolling up or at top
           if (currentScrollY < lastScrollY || currentScrollY < 10) {
@@ -111,9 +114,9 @@ const App = () => {
       }
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY, activeTab, view]); // Re-attach when tab/view changes
 
   // Auto-save session to Supabase when it changes (debounced)
   const saveTimeoutRef = useRef(null);
@@ -1468,7 +1471,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r3</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r4</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -1514,7 +1517,7 @@ ${chatSummary}`;
 
             {activeTab === 'chat' ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '0 1rem' }}>
+                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0 1rem' }}>
                   <div className="chat-window" style={{ maxWidth: '750px', margin: '0 auto', width: '100%', paddingBottom: '160px' }}>
                     <div className="glass-heavy reveal" style={{ padding: '0.5rem 0.8rem', marginBottom: '1rem', display: 'flex', gap: '0.6rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between', borderRadius: '12px' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: 0 }}>
@@ -1601,7 +1604,7 @@ ${chatSummary}`;
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 140px', display: 'flex', justifyContent: 'center' }}>
+                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0 0 140px', display: 'flex', justifyContent: 'center' }}>
                   <div style={{
                     width: previewMode === 'mobile' ? '400px' : previewMode === 'tablet' ? '768px' : '100%',
                     maxWidth: '960px',
