@@ -41,7 +41,7 @@ const App = () => {
 
   // Internal Configuration
   const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_SEARCH_CLIENT_ID || 'dkky2C4u82iO24wfSQ1J';
-  const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_SEARCH_CLIENT_ID || 'dkky2C4u82iO24wfSQ1J';
+
   // Client Secret is now handled securely on the server (api/naver-callback.js)
   const [naverUser, setNaverUser] = useState(null); // { nickname, blogTitle, profileImage, etc. }
 
@@ -1473,7 +1473,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r6</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r7</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -1510,6 +1510,7 @@ ${chatSummary}`;
           setActiveTab={setActiveTab} representativeIds={representativeIds}
           setRepresentativeIds={setRepresentativeIds} contextMenu={contextMenu}
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
+          setHeaderVisible={setHeaderVisible}
         /> : view === 'settings' ? <SettingsView /> : (
           <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '0.5rem' }}>
             <div className="tab-container" style={{ marginBottom: '1rem' }}>

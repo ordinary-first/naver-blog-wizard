@@ -20,24 +20,14 @@ const HomeView = ({
     setRepresentativeIds,
     contextMenu,
     setContextMenu,
-    toggleRepresentative
+    toggleRepresentative,
+    setHeaderVisible
 }) => {
     const longPressTimer = useRef(null);
     const scrollContainerRef = useRef(null);
-    const headerRef = useRef(null);
-    const [headerVisible, setHeaderVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
-    const [headerHeight, setHeaderHeight] = useState(180);
 
-    // Measure header height dynamically
-    useEffect(() => {
-        if (headerRef.current) {
-            const height = headerRef.current.offsetHeight;
-            setHeaderHeight(height);
-        }
-    }, [isSearchOpen]); // Recalculate when search state changes
-
-    // Header auto-hide on scroll (DISABLED when search is open)
+    // Auto-hide App.jsx header on scroll
     useEffect(() => {
         const scrollContainer = scrollContainerRef.current;
         if (!scrollContainer) return;
@@ -45,9 +35,9 @@ const HomeView = ({
         let ticking = false;
 
         const handleScroll = (e) => {
-            // ✅ CRITICAL: Never hide header when search is open
+            // Never hide header when search is open
             if (isSearchOpen) {
-                if (!headerVisible) setHeaderVisible(true);
+                if (setHeaderVisible) setHeaderVisible(true);
                 return;
             }
 
@@ -55,13 +45,11 @@ const HomeView = ({
                 window.requestAnimationFrame(() => {
                     const currentScrollY = e.target.scrollTop;
 
-                    // Show header when scrolling up or at top
-                    if (currentScrollY < lastScrollY || currentScrollY < 10) {
-                        setHeaderVisible(true);
-                    }
-                    // Hide header when scrolling down (only if scrolled more than 50px)
-                    else if (currentScrollY > 50 && currentScrollY > lastScrollY) {
-                        setHeaderVisible(false);
+                    // Hide header when scrolling down, show when scrolling up
+                    if (currentScrollY > lastScrollY && currentScrollY > 60) {
+                        if (setHeaderVisible) setHeaderVisible(false);
+                    } else if (currentScrollY < lastScrollY) {
+                        if (setHeaderVisible) setHeaderVisible(true);
                     }
 
                     setLastScrollY(currentScrollY);
@@ -73,393 +61,439 @@ const HomeView = ({
 
         scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
         return () => scrollContainer.removeEventListener('scroll', handleScroll);
-    }, [lastScrollY, isSearchOpen, headerVisible]);
+    }, [lastScrollY, isSearchOpen, setHeaderVisible]);
 
-    const published = sessions.filter(s => s.status === 'published');
-    const active = sessions.filter(s => s.status === 'active');
-
-    // Search Logic
-    const allSessions = [...active, ...published];
-    const normalizedQuery = searchQuery?.trim().toLowerCase() || '';
-    const searchResults = normalizedQuery
-        ? allSessions.filter(s => s.title.toLowerCase().includes(normalizedQuery) || s.messages.some(m => m.content && m.content.toLowerCase().includes(normalizedQuery)))
-        : [];
-
-    // Determine List
-    let targetList = [];
-    if (normalizedQuery) {
-        targetList = searchResults;
-    } else {
-        targetList = sessionTab === 'active' ? active : published;
-    }
-
-    // Pagination
-    const visibleList = targetList.slice(0, visibleCount);
-    const hasMore = visibleList.length < targetList.length;
-
-    const handleTabChange = (tab) => {
-        setSessionTab(tab);
-        setVisibleCount(5);
-        setIsSearchOpen(false);
-        setSearchQuery('');
-        setHeaderVisible(true); // ✅ Always show header when changing tabs
-    };
-
-    // ✅ Show header when opening search
+    // Reset header visibility when search opens/closes
     const handleSearchOpen = () => {
         setIsSearchOpen(true);
-        setVisibleCount(5);
-        setHeaderVisible(true); // Force header visible
+        if (setHeaderVisible) setHeaderVisible(true);
     };
 
-    // ✅ Show header when closing search
     const handleSearchClose = () => {
         setIsSearchOpen(false);
-        setSearchQuery('');
-        setHeaderVisible(true); // Force header visible
+        if (setHeaderVisible) setHeaderVisible(true);
+    };
+
+    // Reset header when tab changes
+    const handleTabChange = (tab) => {
+        setSessionTab(tab);
+        if (setHeaderVisible) setHeaderVisible(true);
+    };
+
+    const active = sessions.filter(s => s.publishedDate === null);
+    const published = sessions.filter(s => s.publishedDate !== null);
+    const currentSessions = sessionTab === 'active' ? active : published;
+
+    const filteredSessions = searchQuery.trim()
+        ? currentSessions.filter((session) => {
+            const title = session.title || '새로운 기록';
+            return title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                   session.messages.some(m => m.text?.toLowerCase().includes(searchQuery.toLowerCase()));
+        })
+        : currentSessions;
+
+    const handleLongPressStart = (sessionId, e) => {
+        e.preventDefault();
+        longPressTimer.current = setTimeout(() => {
+            setContextMenu({ sessionId, x: e.clientX || e.touches[0].clientX, y: e.clientY || e.touches[0].clientY });
+        }, 500);
+    };
+
+    const handleLongPressEnd = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const handleDeleteSession = (sessionId) => {
+        if (window.confirm('이 세션을 삭제하시겠습니까?')) {
+            setSessions(prev => prev.filter(s => s.id !== sessionId));
+        }
+        setContextMenu(null);
     };
 
     return (
         <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
-            {/* Fixed Header */}
-            <div
-                ref={headerRef}
-                style={{
-                    position: 'fixed',
-                    top: headerVisible ? 0 : `-${headerHeight}px`,
-                    left: 0,
-                    right: 0,
-                    zIndex: 100,
-                    background: 'var(--bg-main)',
-                    transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    padding: '0.8rem 1rem',
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                }}>
-                {/* Tab & Search Navigation */}
-                <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '850px', margin: '0 auto', height: '44px', position: 'relative' }}>
-
-                {/* A. Search Bar (Expanded) */}
+            {/* Fixed Header: Profile + Tabs */}
+            <div style={{
+                position: 'fixed',
+                top: '60px', // Below App.jsx header
+                left: 0,
+                right: 0,
+                zIndex: 90,
+                background: 'var(--bg-main)',
+                padding: '1rem 1rem 0.5rem',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+                {/* Profile Section */}
                 <div style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
+                    marginBottom: '0.8rem',
+                    width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    background: 'var(--bg-card)',
-                    borderRadius: '12px',
-                    padding: '0 0.5rem',
-                    gap: '0.5rem',
-                    opacity: isSearchOpen ? 1 : 0,
-                    pointerEvents: isSearchOpen ? 'auto' : 'none',
-                    transform: isSearchOpen ? 'scale(1)' : 'scale(0.95)',
-                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                    border: '1px solid var(--naver-green)',
-                    zIndex: 10,
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                    justifyContent: 'flex-start',
+                    gap: '0.8rem',
+                    maxWidth: '850px',
+                    margin: '0 auto 0.8rem'
                 }}>
-                    <Search size={18} color="var(--naver-green)" />
-                    <input
-                        autoFocus={isSearchOpen}
-                        placeholder="글 제목, 내용 검색..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '0.95rem', outline: 'none' }}
+                    <img
+                        src={naverUser?.profileImage || 'https://via.placeholder.com/40'}
+                        style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }}
+                        alt="profile"
                     />
-                    {searchQuery && (
-                        <button onClick={() => setSearchQuery('')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}><X size={16} /></button>
-                    )}
-                    <button
-                        onClick={handleSearchClose}
-                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: 'var(--text-dim)', cursor: 'pointer', padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600', whiteSpace: 'nowrap' }}
-                    >
-                        닫기
-                    </button>
+                    <div style={{ textAlign: 'left' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)', display: 'block' }}>안녕하세요,</span>
+                        <h1 className="premium-gradient" style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>
+                            {naverUser?.blogTitle}님
+                        </h1>
+                    </div>
                 </div>
 
-                {/* B. Tabs (Hidden when search is open) */}
+                {/* Tab & Search Navigation */}
                 <div style={{
                     display: 'flex',
+                    alignItems: 'center',
                     width: '100%',
-                    opacity: isSearchOpen ? 0 : 1,
-                    transition: 'opacity 0.2s',
-                    pointerEvents: isSearchOpen ? 'none' : 'auto'
+                    maxWidth: '850px',
+                    margin: '0 auto',
+                    height: '44px',
+                    position: 'relative'
                 }}>
-                    <button
-                        onClick={() => handleTabChange('active')}
-                        style={{
-                            flex: 1,
-                            padding: '0.8rem',
-                            background: 'transparent',
-                            border: 'none',
-                            borderBottom: sessionTab === 'active' ? '2px solid var(--naver-green)' : '2px solid transparent',
-                            color: sessionTab === 'active' ? 'var(--text-main)' : 'var(--text-dim)',
-                            fontSize: '0.95rem',
-                            fontWeight: sessionTab === 'active' ? '800' : '500',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease'
-                        }}
-                    >
-                        작성 중 ({active.length})
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('published')}
-                        style={{
-                            flex: 1,
-                            padding: '0.8rem',
-                            background: 'transparent',
-                            border: 'none',
-                            borderBottom: sessionTab === 'published' ? '2px solid var(--naver-green)' : '2px solid transparent',
-                            color: sessionTab === 'published' ? 'var(--text-main)' : 'var(--text-dim)',
-                            fontSize: '0.95rem',
-                            fontWeight: sessionTab === 'published' ? '800' : '500',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease'
-                        }}
-                    >
-                        발행됨 ({published.length})
-                    </button>
+                    {/* Search Bar (Expanded) */}
+                    <div style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: 'var(--bg-card)',
+                        borderRadius: '12px',
+                        padding: '0 0.5rem',
+                        gap: '0.5rem',
+                        opacity: isSearchOpen ? 1 : 0,
+                        pointerEvents: isSearchOpen ? 'auto' : 'none',
+                        transform: isSearchOpen ? 'scale(1)' : 'scale(0.95)',
+                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        border: '1px solid var(--naver-green)',
+                        zIndex: 10,
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                    }}>
+                        <Search size={18} color="var(--naver-green)" />
+                        <input
+                            autoFocus={isSearchOpen}
+                            placeholder="글 제목, 내용 검색..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{
+                                flex: 1,
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-main)',
+                                fontSize: '0.95rem',
+                                outline: 'none'
+                            }}
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex'
+                                }}
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                        <button
+                            onClick={handleSearchClose}
+                            style={{
+                                background: 'rgba(255,255,255,0.1)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: 'var(--text-dim)',
+                                cursor: 'pointer',
+                                padding: '6px 12px',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            닫기
+                        </button>
+                    </div>
 
-                    {/* Search Trigger Button */}
-                    <button
-                        className="button-hover"
-                        onClick={handleSearchOpen}
-                        style={{
-                            padding: '0 1rem',
-                            background: 'transparent',
-                            border: 'none',
-                            borderBottom: '2px solid transparent',
-                            color: 'var(--text-dim)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}
-                    >
-                        <Search size={20} />
-                    </button>
-                </div>
+                    {/* Tabs (Hidden when search is open) */}
+                    <div style={{
+                        display: 'flex',
+                        width: '100%',
+                        opacity: isSearchOpen ? 0 : 1,
+                        transition: 'opacity 0.2s',
+                        pointerEvents: isSearchOpen ? 'none' : 'auto'
+                    }}>
+                        <button
+                            onClick={() => handleTabChange('active')}
+                            style={{
+                                flex: 1,
+                                padding: '0.7rem',
+                                background: 'transparent',
+                                border: 'none',
+                                borderBottom: sessionTab === 'active' ? '2px solid var(--naver-green)' : '2px solid transparent',
+                                color: sessionTab === 'active' ? 'var(--text-main)' : 'var(--text-dim)',
+                                fontSize: '0.95rem',
+                                fontWeight: sessionTab === 'active' ? '800' : '500',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            작성 중 ({active.length})
+                        </button>
+                        <button
+                            onClick={() => handleTabChange('published')}
+                            style={{
+                                flex: 1,
+                                padding: '0.7rem',
+                                background: 'transparent',
+                                border: 'none',
+                                borderBottom: sessionTab === 'published' ? '2px solid var(--naver-green)' : '2px solid transparent',
+                                color: sessionTab === 'published' ? 'var(--text-main)' : 'var(--text-dim)',
+                                fontSize: '0.95rem',
+                                fontWeight: sessionTab === 'published' ? '800' : '500',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            발행됨 ({published.length})
+                        </button>
+                        <button
+                            onClick={handleSearchOpen}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-dim)',
+                                cursor: 'pointer',
+                                padding: '0.5rem 0.8rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'color 0.2s'
+                            }}
+                        >
+                            <Search size={18} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Scrollable Content */}
             <div
                 ref={scrollContainerRef}
-                className="reveal"
                 style={{
-                    padding: '1rem 1.2rem',
-                    paddingTop: `${headerHeight + 20}px`, // ✅ Dynamic header height + spacing
                     height: '100%',
                     overflowY: 'auto',
-                    paddingBottom: '160px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center'
+                    paddingTop: '170px', // Profile + Tabs height
+                    paddingBottom: '100px'
                 }}
             >
-                {/* List Content */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%', maxWidth: '850px' }}>
-
-                {/* Empty States */}
-                {targetList.length === 0 && (
-                    <div className="glass" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-dim)', borderRadius: '16px' }}>
-                        {normalizedQuery ? (
-                            <p style={{ fontSize: '0.9rem' }}>'{searchQuery}'에 대한 검색 결과가 없습니다.</p>
-                        ) : sessionTab === 'active' ? (
-                            <>
-                                <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>작성 중인 글이 없습니다.</p>
-                                <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>아래 + 버튼을 눌러 새로운 글을 써보세요!</p>
-                            </>
-                        ) : (
-                            <p style={{ fontSize: '0.9rem' }}>아직 발행된 글이 없습니다.</p>
-                        )}
-                    </div>
-                )}
-
-                {/* List Items */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                    {visibleList.map(s => (
-                        <div
-                            key={s.id}
-                            className="session-item reveal glass"
-                            style={{
-                                padding: '0.8rem',
-                                borderRadius: '16px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.8rem',
-                                border: s.status === 'published' && representativeIds.includes(s.id) ? '1px solid rgba(255, 215, 0, 0.3)' : '1px solid rgba(255,255,255,0.05)',
-                                cursor: 'pointer',
-                                userSelect: 'none',
-                                transition: 'all 0.2s ease',
-                                backgroundColor: 'var(--glass)'
-                            }}
-                            onClick={() => { setCurrentSessionId(s.id); setView('editor'); setActiveTab(s.status === 'published' ? 'post' : 'chat'); }}
-                            onTouchStart={(e) => {
-                                if (s.status === 'published') {
-                                    longPressTimer.current = setTimeout(() => {
-                                        const rect = e.target.getBoundingClientRect();
-                                        setContextMenu({ visible: true, sessionId: s.id, x: rect.left + rect.width / 2, y: rect.top });
-                                    }, 500);
-                                }
-                            }}
-                            onTouchEnd={() => clearTimeout(longPressTimer.current)}
-                            onTouchCancel={() => clearTimeout(longPressTimer.current)}
-                            onContextMenu={(e) => {
-                                if (s.status === 'published') {
-                                    e.preventDefault();
-                                    setContextMenu({ visible: true, sessionId: s.id, x: e.clientX, y: e.clientY });
-                                }
-                            }}
-                        >
-                            <div style={{ background: s.status === 'published' && representativeIds.includes(s.id) ? 'rgba(255, 215, 0, 0.15)' : 'rgba(3, 199, 90, 0.1)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {s.status === 'active' ? <MessageCircle size={18} color="var(--naver-green)" /> :
-                                    representativeIds.includes(s.id) ? <Star size={18} color="#FFD700" fill="#FFD700" /> : <BookOpen size={18} color="var(--naver-green)" />}
-                            </div>
-
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem', color: 'var(--text-main)' }}>{s.title}</h3>
-                                {s.status === 'active' ? (
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {(() => {
-                                            const lastMsg = s.messages[s.messages.length - 1];
-                                            if (!lastMsg?.content) return '';
-                                            if (lastMsg.type === 'image' || (typeof lastMsg.content === 'string' && lastMsg.content.startsWith('data:image'))) {
-                                                return '📷 사진';
-                                            }
-                                            return lastMsg.content;
-                                        })()}
-                                    </p>
-                                ) : (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(s.publishedAt).toLocaleDateString()}</span>
-                                        {representativeIds.includes(s.id) && <span style={{ fontSize: '0.7rem', color: '#FFD700', background: 'rgba(255, 215, 0, 0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: '500' }}>대표글</span>}
-                                    </div>
-                                )}
-                            </div>
-
-                            {s.status === 'active' && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{new Date(s.createdAt).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}</span>}
-                        </div>
-                    ))}
-                </div>
-
-                {/* Load More Button */}
-                {hasMore && (
-                    <button
-                        className="button-hover"
-                        onClick={() => setVisibleCount(prev => prev + 5)}
-                        style={{
-                            width: '100%',
-                            padding: '1rem',
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: '16px',
+                <div style={{ maxWidth: '850px', margin: '0 auto', padding: '0 1rem' }}>
+                    {filteredSessions.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
                             color: 'var(--text-dim)',
-                            fontWeight: '700',
-                            marginTop: '0.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.5rem',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        더 보기 <ChevronDown size={16} />
-                    </button>
-                )}
+                            padding: '3rem 1rem',
+                            fontSize: '0.95rem'
+                        }}>
+                            {searchQuery ? '검색 결과가 없습니다.' : '아직 작성된 글이 없습니다.'}
+                        </div>
+                    ) : (
+                        <>
+                            {filteredSessions.slice(0, visibleCount).map((session) => {
+                                const isRepresentative = representativeIds.includes(session.id);
+                                return (
+                                    <div
+                                        key={session.id}
+                                        className="glass reveal"
+                                        onMouseDown={(e) => handleLongPressStart(session.id, e)}
+                                        onMouseUp={handleLongPressEnd}
+                                        onMouseLeave={handleLongPressEnd}
+                                        onTouchStart={(e) => handleLongPressStart(session.id, e)}
+                                        onTouchEnd={handleLongPressEnd}
+                                        onClick={(e) => {
+                                            if (contextMenu) return;
+                                            setCurrentSessionId(session.id);
+                                            setActiveTab('chat');
+                                            setView('editor');
+                                        }}
+                                        style={{
+                                            padding: '1rem',
+                                            marginBottom: '0.8rem',
+                                            cursor: 'pointer',
+                                            borderRadius: '12px',
+                                            transition: 'all 0.2s ease',
+                                            position: 'relative',
+                                            border: isRepresentative ? '2px solid var(--naver-green)' : '1px solid rgba(255,255,255,0.05)'
+                                        }}
+                                    >
+                                        {isRepresentative && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '0.5rem',
+                                                right: '0.5rem',
+                                                background: 'var(--naver-green)',
+                                                borderRadius: '50%',
+                                                width: '24px',
+                                                height: '24px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                <Star size={14} fill="white" color="white" />
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                            {session.publishedDate ? (
+                                                <BookOpen size={16} color="var(--naver-green)" />
+                                            ) : (
+                                                <MessageCircle size={16} color="var(--text-dim)" />
+                                            )}
+                                            <h3 style={{
+                                                margin: 0,
+                                                fontSize: '1rem',
+                                                fontWeight: '700',
+                                                color: 'var(--text-main)',
+                                                flex: 1,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {session.title || '새로운 기록'}
+                                            </h3>
+                                        </div>
+                                        <div style={{
+                                            fontSize: '0.8rem',
+                                            color: 'var(--text-dim)',
+                                            marginBottom: '0.3rem'
+                                        }}>
+                                            {new Date(session.createdAt).toLocaleDateString('ko-KR', {
+                                                month: 'numeric',
+                                                day: 'numeric'
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
 
+                            {visibleCount < filteredSessions.length && (
+                                <button
+                                    onClick={() => setVisibleCount(prev => prev + 10)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.8rem',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '12px',
+                                        color: 'var(--text-dim)',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.5rem',
+                                        fontSize: '0.9rem',
+                                        fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    더 보기 <ChevronDown size={16} />
+                                </button>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
 
-            {/* Context Menu Popup */}
-            {contextMenu.visible && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 9999,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'rgba(0,0,0,0.5)',
-                        backdropFilter: 'blur(4px)'
-                    }}
-                    onClick={() => setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 })}
-                >
+            {/* Context Menu */}
+            {contextMenu && (
+                <>
                     <div
-                        className="glass-heavy"
+                        onClick={() => setContextMenu(null)}
                         style={{
-                            padding: '0.8rem',
-                            borderRadius: '16px',
-                            minWidth: '180px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.4rem',
-                            boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            zIndex: 998
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                    />
+                    <div
+                        className="glass"
+                        style={{
+                            position: 'fixed',
+                            top: contextMenu.y,
+                            left: contextMenu.x,
+                            zIndex: 999,
+                            borderRadius: '12px',
+                            padding: '0.5rem',
+                            minWidth: '180px',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                        }}
                     >
-                        <div style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                            {sessions.find(s => s.id === contextMenu.sessionId)?.title || '선택된 글'}
-                        </div>
                         <button
-                            className="button-hover"
                             onClick={() => {
                                 toggleRepresentative(contextMenu.sessionId);
-                                setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
+                                setContextMenu(null);
                             }}
                             style={{
                                 width: '100%',
-                                padding: '0.7rem 0.8rem',
+                                padding: '0.7rem',
                                 background: 'transparent',
                                 border: 'none',
-                                borderRadius: '10px',
-                                color: 'white',
-                                fontSize: '0.85rem',
-                                fontWeight: '600',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.6rem',
-                                textAlign: 'left'
+                                gap: '0.5rem',
+                                borderRadius: '8px',
+                                fontSize: '0.9rem',
+                                transition: 'background 0.2s'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                            <Star size={16} color="#FFD700" fill={representativeIds.includes(contextMenu.sessionId) ? '#FFD700' : 'none'} />
-                            {representativeIds.includes(contextMenu.sessionId) ? '대표글 해제' : '대표글로 설정'}
+                            <Star size={16} />
+                            {representativeIds.includes(contextMenu.sessionId) ? '대표 해제' : '대표 설정'}
                         </button>
                         <button
-                            className="button-hover"
-                            onClick={() => {
-                                if (confirm('이 글을 삭제하시겠습니까?')) {
-                                    setSessions(prev => prev.filter(s => s.id !== contextMenu.sessionId));
-                                    setRepresentativeIds(prev => prev.filter(id => id !== contextMenu.sessionId));
-                                }
-                                setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
-                            }}
+                            onClick={() => handleDeleteSession(contextMenu.sessionId)}
                             style={{
                                 width: '100%',
-                                padding: '0.7rem 0.8rem',
+                                padding: '0.7rem',
                                 background: 'transparent',
                                 border: 'none',
-                                borderRadius: '10px',
-                                color: '#ef4444',
-                                fontSize: '0.85rem',
-                                fontWeight: '600',
+                                color: '#ff4444',
+                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.6rem',
-                                textAlign: 'left'
+                                gap: '0.5rem',
+                                borderRadius: '8px',
+                                fontSize: '0.9rem',
+                                transition: 'background 0.2s'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,68,68,0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
                             <Trash2 size={16} />
                             삭제
                         </button>
                     </div>
-                </div>
+                </>
             )}
         </div>
     );
