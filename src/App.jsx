@@ -41,7 +41,8 @@ const App = () => {
 
   // Internal Configuration
   const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_SEARCH_CLIENT_ID || 'dkky2C4u82iO24wfSQ1J';
-  const NAVER_CLIENT_SECRET = import.meta.env.VITE_NAVER_SEARCH_CLIENT_SECRET || 'Kz8Iw7_Cqc';
+  const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_SEARCH_CLIENT_ID || 'dkky2C4u82iO24wfSQ1J';
+  // Client Secret is now handled securely on the server (api/naver-callback.js)
   const [naverUser, setNaverUser] = useState(null); // { nickname, blogTitle, profileImage, etc. }
 
   // Home View State
@@ -276,14 +277,15 @@ const App = () => {
   // Naver OAuth callback handler - moved after processNaverLogin definition
   const handleNaverCallback = useCallback(async (code, state) => {
     try {
-      // Note: In a real production app, token exchange MUST happen on the server to avoid CORS and protect Client Secret.
-      const tokenUrl = `/oauth2.0/token?grant_type=authorization_code&client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&code=${code}&state=${state}`;
+      // Production-Ready: Token exchange via Serverless Function
+      const tokenUrl = `/api/naver-callback?code=${code}&state=${state}`;
 
       const response = await fetch(tokenUrl);
       const data = await response.json();
 
       if (data.access_token) {
-        const profileResponse = await fetch(`/v1/nid/me`, {
+        // Production-Ready: Fetch profile via Serverless Function
+        const profileResponse = await fetch(`/api/naver-me`, {
           headers: { Authorization: `Bearer ${data.access_token}` }
         });
         const profileData = await profileResponse.json();
@@ -1471,7 +1473,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r5</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r6</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>

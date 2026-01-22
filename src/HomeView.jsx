@@ -35,7 +35,7 @@ const HomeView = ({
             const height = headerRef.current.offsetHeight;
             setHeaderHeight(height);
         }
-    }, [isSearchOpen, naverUser]); // Recalculate when search state or user changes
+    }, [isSearchOpen]); // Recalculate when search state changes
 
     // Header auto-hide on scroll (DISABLED when search is open)
     useEffect(() => {
@@ -132,22 +132,13 @@ const HomeView = ({
                     zIndex: 100,
                     background: 'var(--bg-main)',
                     transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    padding: '1rem 1.2rem',
+                    padding: '0.8rem 1rem',
                     borderBottom: '1px solid rgba(255,255,255,0.05)',
                     backdropFilter: 'blur(10px)',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                 }}>
-                {/* Compact Header */}
-                <div style={{ marginBottom: '1rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.8rem', maxWidth: '850px', margin: '0 auto 1rem' }}>
-                    <img src={naverUser?.profileImage || 'https://via.placeholder.com/40'} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }} alt="profile" />
-                    <div style={{ textAlign: 'left' }}>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)', display: 'block' }}>안녕하세요,</span>
-                        <h1 className="premium-gradient" style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>{naverUser?.blogTitle}님</h1>
-                    </div>
-                </div>
-
                 {/* Tab & Search Navigation */}
-                <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '850px', margin: '0 auto', height: '46px', position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '850px', margin: '0 auto', height: '44px', position: 'relative' }}>
 
                 {/* A. Search Bar (Expanded) */}
                 <div style={{
