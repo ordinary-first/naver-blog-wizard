@@ -23,6 +23,8 @@ const App = () => {
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'post'
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const [hasNewPostContent, setHasNewPostContent] = useState(false);
   const [inputText, setInputText] = useState('');
   const [postEditInput, setPostEditInput] = useState('');
@@ -83,6 +85,35 @@ const App = () => {
       });
     }
   }, [isSupabaseReady, supabaseUserId, isDataLoaded]);
+
+  // Header auto-hide on scroll (mobile-friendly)
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+
+          // Show header when scrolling up or at top
+          if (currentScrollY < lastScrollY || currentScrollY < 10) {
+            setHeaderVisible(true);
+          }
+          // Hide header when scrolling down (only if scrolled more than 50px)
+          else if (currentScrollY > 50 && currentScrollY > lastScrollY) {
+            setHeaderVisible(false);
+          }
+
+          setLastScrollY(currentScrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
 
   // Auto-save session to Supabase when it changes (debounced)
   const saveTimeoutRef = useRef(null);
@@ -1428,7 +1459,7 @@ ${chatSummary}`;
 
   return (
     <div className="app-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-dark)' }}>
-      <header className="glass" style={{ margin: '0.6rem', padding: '0.5rem 0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '12px', zIndex: 100, position: 'sticky', top: 0, backgroundColor: 'var(--bg-dark)' }}>
+      <header className="glass" style={{ margin: '0.6rem', padding: '0.5rem 0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '12px', zIndex: 100, position: 'sticky', top: 0, backgroundColor: 'var(--bg-dark)', transform: headerVisible ? 'translateY(0)' : 'translateY(-120%)', transition: 'transform 0.3s ease-in-out' }}>
         <div
           className="button-hover"
           onClick={() => setView('home')}
@@ -1437,7 +1468,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r2</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r3</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
