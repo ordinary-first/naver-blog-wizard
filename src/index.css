@@ -558,9 +558,9 @@ body {
 }
 
 @media (max-width: 480px) {
-  header span {
-    display: none;
-    /* Hide nickname on very small screens */
+  /* Don't hide all spans - only hide nickname with class */
+  .mobile-hide-text {
+    display: none !important;
   }
 
   .session-item img {
@@ -571,10 +571,6 @@ body {
   .session-item div[style*="minWidth: 48px"] {
     min-width: 38px !important;
     height: 38px !important;
-  }
-
-  .mobile-hide-text {
-    display: none !important;
   }
 
   .seamless-title {
