@@ -1471,7 +1471,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r13</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r14</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -1509,15 +1509,30 @@ ${chatSummary}`;
           setRepresentativeIds={setRepresentativeIds} contextMenu={contextMenu}
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
         /> : view === 'settings' ? <SettingsView /> : (
-          <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '0.5rem' }}>
-            <div className="tab-container" style={{ marginBottom: '1rem' }}>
+          <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+            {/* Fixed Tab Container */}
+            <div
+              className="tab-container"
+              style={{
+                position: 'fixed',
+                top: headerVisible ? '60px' : '0px',
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                margin: '0 0.6rem',
+                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                background: 'var(--bg-dark)',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+              }}
+            >
               <div className={`tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}><MessageCircle size={14} /> 대화</div>
               <div className={`tab ${activeTab === 'post' ? 'active' : ''} ${hasNewPostContent ? 'has-new' : ''}`} onClick={() => { setActiveTab('post'); setHasNewPostContent(false); }}><FileText size={14} /> 글</div>
             </div>
 
             {activeTab === 'chat' ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0 1rem' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', paddingTop: '60px' }}>
+                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0.8rem 1rem 0' }}>
                   <div className="chat-window" style={{ maxWidth: '750px', margin: '0 auto', width: '100%', paddingBottom: '160px' }}>
                     <div className="glass-heavy reveal" style={{ padding: '0.5rem 0.8rem', marginBottom: '1rem', display: 'flex', gap: '0.6rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between', borderRadius: '12px' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: 0 }}>
@@ -1603,8 +1618,8 @@ ${chatSummary}`;
                 </div>
               </div>
             ) : (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', paddingTop: '70px' }}>
-                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '1rem 0 140px', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', paddingTop: '60px' }}>
+                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0.8rem 0 140px', display: 'flex', justifyContent: 'center' }}>
                   <div style={{
                     width: previewMode === 'mobile' ? '400px' : previewMode === 'tablet' ? '768px' : '100%',
                     maxWidth: '960px',
