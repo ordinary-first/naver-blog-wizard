@@ -41,8 +41,7 @@ const App = () => {
 
   // Internal Configuration
   const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_SEARCH_CLIENT_ID || 'dkky2C4u82iO24wfSQ1J';
-
-  // Client Secret is now handled securely on the server (api/naver-callback.js)
+  const NAVER_CLIENT_SECRET = import.meta.env.VITE_NAVER_SEARCH_CLIENT_SECRET || 'Kz8Iw7_Cqc';
   const [naverUser, setNaverUser] = useState(null); // { nickname, blogTitle, profileImage, etc. }
 
   // Home View State
@@ -277,15 +276,14 @@ const App = () => {
   // Naver OAuth callback handler - moved after processNaverLogin definition
   const handleNaverCallback = useCallback(async (code, state) => {
     try {
-      // Production-Ready: Token exchange via Serverless Function
-      const tokenUrl = `/api/naver-callback?code=${code}&state=${state}`;
+      // Note: In a real production app, token exchange MUST happen on the server to avoid CORS and protect Client Secret.
+      const tokenUrl = `/oauth2.0/token?grant_type=authorization_code&client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&code=${code}&state=${state}`;
 
       const response = await fetch(tokenUrl);
       const data = await response.json();
 
       if (data.access_token) {
-        // Production-Ready: Fetch profile via Serverless Function
-        const profileResponse = await fetch(`/api/naver-me`, {
+        const profileResponse = await fetch(`/v1/nid/me`, {
           headers: { Authorization: `Bearer ${data.access_token}` }
         });
         const profileData = await profileResponse.json();
@@ -1473,7 +1471,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r12</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r13</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -1510,30 +1508,15 @@ ${chatSummary}`;
           setActiveTab={setActiveTab} representativeIds={representativeIds}
           setRepresentativeIds={setRepresentativeIds} contextMenu={contextMenu}
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
-          setHeaderVisible={setHeaderVisible}
         /> : view === 'settings' ? <SettingsView /> : (
-          <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
-            {/* Fixed Tab Container */}
-            <div
-              className="tab-container"
-              style={{
-                position: 'fixed',
-                top: headerVisible ? '60px' : '0px',
-                left: 0,
-                right: 0,
-                zIndex: 90,
-                margin: '0 0.6rem',
-                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                background: 'var(--bg-dark)',
-                backdropFilter: 'blur(10px)'
-              }}
-            >
+          <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '0.5rem' }}>
+            <div className="tab-container" style={{ marginBottom: '1rem' }}>
               <div className={`tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}><MessageCircle size={14} /> 대화</div>
               <div className={`tab ${activeTab === 'post' ? 'active' : ''} ${hasNewPostContent ? 'has-new' : ''}`} onClick={() => { setActiveTab('post'); setHasNewPostContent(false); }}><FileText size={14} /> 글</div>
             </div>
 
             {activeTab === 'chat' ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', paddingTop: '70px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
                 <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0 1rem' }}>
                   <div className="chat-window" style={{ maxWidth: '750px', margin: '0 auto', width: '100%', paddingBottom: '160px' }}>
                     <div className="glass-heavy reveal" style={{ padding: '0.5rem 0.8rem', marginBottom: '1rem', display: 'flex', gap: '0.6rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between', borderRadius: '12px' }}>
@@ -1629,7 +1612,7 @@ ${chatSummary}`;
                     padding: previewMode === 'mobile' ? '0 1rem' : '0 2rem',
                     transition: 'width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', marginTop: '0' }}>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <button className="button-hover glass" onClick={undo} disabled={historyIndex <= 0} style={{ padding: '0.5rem', opacity: historyIndex <= 0 ? 0.2 : 0.8, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>
                           <RotateCcw size={18} color="white" />
@@ -1650,7 +1633,7 @@ ${chatSummary}`;
                       </div>
                     </div>
 
-                    <input className="seamless-title" value={currentSession?.post.title} onChange={(e) => setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, post: { ...s.post, title: e.target.value } } : s))} placeholder="제목을 입력하세요" style={{ fontSize: 'clamp(1.4rem, 4vw, 2.8rem)', marginBottom: '1.5rem' }} />
+                    <input className="seamless-title" value={currentSession?.post.title} onChange={(e) => setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, post: { ...s.post, title: e.target.value } } : s))} placeholder="제목을 입력하세요" style={{ fontSize: 'clamp(1.4rem, 4vw, 2.8rem)', marginBottom: '1rem' }} />
 
                     {isGenerating ? <div style={{ textAlign: 'center', padding: '6rem 0' }}><div className="floating-action" style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🪄</div><p style={{ color: 'var(--text-dim)' }}>AI가 블로그 거장을 위한 글을 빚고 있습니다...</p></div> :
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1832,6 +1815,23 @@ ${chatSummary}`;
         )}
       </main>
     </div>
+  );
+};
+
+export default App;
+          </div >
+        )}
+
+{
+  view === 'home' && (
+    <button className="cta-button button-hover reveal" onClick={createNewSession} style={{ animationDelay: '0.3s', padding: '0.8rem 1.5rem', fontSize: '0.9rem', borderRadius: '16px' }}>
+      <Plus size={18} />
+      일상을 기록하기
+    </button>
+  )
+}
+      </main >
+    </div >
   );
 };
 
