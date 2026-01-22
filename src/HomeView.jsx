@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Search, X, MessageCircle, Star, BookOpen, ChevronDown, Trash2 } from 'lucide-react';
 
 const HomeView = ({
@@ -23,6 +23,41 @@ const HomeView = ({
     toggleRepresentative
 }) => {
     const longPressTimer = useRef(null);
+    const scrollContainerRef = useRef(null);
+    const [headerVisible, setHeaderVisible] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
+
+    // Header auto-hide on scroll
+    useEffect(() => {
+        const scrollContainer = scrollContainerRef.current;
+        if (!scrollContainer) return;
+
+        let ticking = false;
+
+        const handleScroll = (e) => {
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    const currentScrollY = e.target.scrollTop;
+
+                    // Show header when scrolling up or at top
+                    if (currentScrollY < lastScrollY || currentScrollY < 10) {
+                        setHeaderVisible(true);
+                    }
+                    // Hide header when scrolling down (only if scrolled more than 50px)
+                    else if (currentScrollY > 50 && currentScrollY > lastScrollY) {
+                        setHeaderVisible(false);
+                    }
+
+                    setLastScrollY(currentScrollY);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+
+        scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+        return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }, [lastScrollY]);
 
     const published = sessions.filter(s => s.status === 'published');
     const active = sessions.filter(s => s.status === 'active');
@@ -54,18 +89,31 @@ const HomeView = ({
     };
 
     return (
-        <div className="reveal" style={{ padding: '1rem 1.2rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {/* Compact Header */}
-            <div style={{ marginBottom: '1.5rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.8rem' }}>
-                <img src={naverUser?.profileImage || 'https://via.placeholder.com/40'} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }} alt="profile" />
-                <div style={{ textAlign: 'left' }}>
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)', display: 'block' }}>안녕하세요,</span>
-                    <h1 className="premium-gradient" style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>{naverUser?.blogTitle}님</h1>
+        <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
+            {/* Fixed Header */}
+            <div style={{
+                position: 'fixed',
+                top: headerVisible ? 0 : '-100px',
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                background: 'var(--bg-main)',
+                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                padding: '1rem 1.2rem',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(10px)'
+            }}>
+                {/* Compact Header */}
+                <div style={{ marginBottom: '1rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.8rem', maxWidth: '850px', margin: '0 auto 1rem' }}>
+                    <img src={naverUser?.profileImage || 'https://via.placeholder.com/40'} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }} alt="profile" />
+                    <div style={{ textAlign: 'left' }}>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)', display: 'block' }}>안녕하세요,</span>
+                        <h1 className="premium-gradient" style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>{naverUser?.blogTitle}님</h1>
+                    </div>
                 </div>
-            </div>
 
-            {/* Tab & Search Navigation */}
-            <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '850px', marginBottom: '1.5rem', height: '46px', position: 'relative' }}>
+                {/* Tab & Search Navigation */}
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '850px', margin: '0 auto', height: '46px', position: 'relative' }}>
 
                 {/* A. Search Bar (Expanded) */}
                 <div style={{
@@ -169,10 +217,26 @@ const HomeView = ({
                         <Search size={20} />
                     </button>
                 </div>
+                </div>
             </div>
 
-            {/* List Content */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%', maxWidth: '850px' }}>
+            {/* Scrollable Content */}
+            <div
+                ref={scrollContainerRef}
+                className="reveal"
+                style={{
+                    padding: '1rem 1.2rem',
+                    paddingTop: '180px', // Space for fixed header
+                    height: '100%',
+                    overflowY: 'auto',
+                    paddingBottom: '160px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                }}
+            >
+                {/* List Content */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%', maxWidth: '850px' }}>
 
                 {/* Empty States */}
                 {targetList.length === 0 && (
@@ -282,6 +346,7 @@ const HomeView = ({
                     </button>
                 )}
 
+                </div>
             </div>
 
             {/* Context Menu Popup */}
