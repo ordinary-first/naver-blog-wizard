@@ -28,7 +28,7 @@ const HomeView = ({
     const [lastScrollY, setLastScrollY] = useState(0);
     const [appHeaderVisible, setAppHeaderVisible] = useState(true);
 
-    // Auto-hide App.jsx header on scroll
+    // Smooth scroll-based header control
     useEffect(() => {
         const scrollContainer = scrollContainerRef.current;
         if (!scrollContainer) return;
@@ -36,7 +36,6 @@ const HomeView = ({
         let ticking = false;
 
         const handleScroll = (e) => {
-            // Never hide header when search is open
             if (isSearchOpen) {
                 if (setHeaderVisible) setHeaderVisible(true);
                 setAppHeaderVisible(true);
@@ -47,18 +46,16 @@ const HomeView = ({
                 window.requestAnimationFrame(() => {
                     const currentScrollY = e.target.scrollTop;
 
-                    // Always show header at top
-                    if (currentScrollY < 10) {
+                    if (currentScrollY < 5) {
+                        // Always show at top
                         if (setHeaderVisible) setHeaderVisible(true);
                         setAppHeaderVisible(true);
-                    }
-                    // Scrolling down: hide header (only after 80px scroll)
-                    else if (currentScrollY > lastScrollY && currentScrollY > 80) {
+                    } else if (currentScrollY > lastScrollY && currentScrollY > 50) {
+                        // Hide on scroll down (reduced threshold: 80→50)
                         if (setHeaderVisible) setHeaderVisible(false);
                         setAppHeaderVisible(false);
-                    }
-                    // Scrolling up: show header immediately
-                    else if (currentScrollY < lastScrollY) {
+                    } else if (currentScrollY < lastScrollY) {
+                        // Show on ANY scroll up
                         if (setHeaderVisible) setHeaderVisible(true);
                         setAppHeaderVisible(true);
                     }
@@ -74,7 +71,6 @@ const HomeView = ({
         return () => scrollContainer.removeEventListener('scroll', handleScroll);
     }, [lastScrollY, isSearchOpen, setHeaderVisible]);
 
-    // Reset header visibility when search opens/closes
     const handleSearchOpen = () => {
         setIsSearchOpen(true);
         if (setHeaderVisible) setHeaderVisible(true);
@@ -87,7 +83,6 @@ const HomeView = ({
         setAppHeaderVisible(true);
     };
 
-    // Reset header when tab changes
     const handleTabChange = (tab) => {
         setSessionTab(tab);
         if (setHeaderVisible) setHeaderVisible(true);
@@ -109,8 +104,10 @@ const HomeView = ({
     const handleLongPressStart = (sessionId, e) => {
         e.preventDefault();
         longPressTimer.current = setTimeout(() => {
-            setContextMenu({ sessionId, x: e.clientX || e.touches[0].clientX, y: e.clientY || e.touches[0].clientY });
-        }, 500);
+            const x = e.clientX || e.touches?.[0]?.clientX || 0;
+            const y = e.clientY || e.touches?.[0]?.clientY || 0;
+            setContextMenu({ sessionId, x, y });
+        }, 400); // Reduced: 500→400ms
     };
 
     const handleLongPressEnd = () => {
@@ -127,57 +124,85 @@ const HomeView = ({
         setContextMenu(null);
     };
 
+    // Context menu positioning
+    const getContextMenuStyle = () => {
+        if (!contextMenu) return {};
+
+        const menuWidth = 180;
+        const menuHeight = 100;
+        const padding = 10;
+
+        let x = contextMenu.x;
+        let y = contextMenu.y;
+
+        // Keep menu on screen
+        if (x + menuWidth > window.innerWidth) {
+            x = window.innerWidth - menuWidth - padding;
+        }
+        if (y + menuHeight > window.innerHeight) {
+            y = window.innerHeight - menuHeight - padding;
+        }
+
+        return { top: y, left: x };
+    };
+
     return (
         <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
             {/* Fixed Header: Profile + Tabs */}
             <div style={{
                 position: 'fixed',
-                top: appHeaderVisible ? '60px' : '0px', // Moves up when App header hides
+                top: appHeaderVisible ? '60px' : '0px',
                 left: 0,
                 right: 0,
                 zIndex: 90,
                 background: 'var(--bg-main)',
-                padding: '0.8rem 1rem 0.4rem',
+                padding: '0.7rem 1rem 0',
                 borderBottom: '1px solid rgba(255,255,255,0.05)',
                 backdropFilter: 'blur(10px)',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}>
-                {/* Profile Section */}
+                {/* Compact Profile */}
                 <div style={{
-                    marginBottom: '0.6rem',
+                    marginBottom: '0.5rem',
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    gap: '0.8rem',
+                    gap: '0.6rem',
                     maxWidth: '850px',
-                    margin: '0 auto 0.6rem'
+                    margin: '0 auto 0.5rem'
                 }}>
                     <img
-                        src={naverUser?.profileImage || 'https://via.placeholder.com/40'}
-                        style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--naver-green)' }}
+                        src={naverUser?.profileImage || 'https://via.placeholder.com/36'}
+                        style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            border: '2px solid var(--naver-green)'
+                        }}
                         alt="profile"
                     />
-                    <div style={{ textAlign: 'left' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)', display: 'block' }}>안녕하세요,</span>
-                        <h1 className="premium-gradient" style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>
-                            {naverUser?.blogTitle}님
-                        </h1>
-                    </div>
+                    <h1 className="premium-gradient" style={{
+                        fontSize: '1rem',
+                        fontWeight: '800',
+                        margin: 0,
+                        letterSpacing: '-0.3px'
+                    }}>
+                        {naverUser?.blogTitle}
+                    </h1>
                 </div>
 
-                {/* Tab & Search Navigation */}
+                {/* Tabs & Search */}
                 <div style={{
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'stretch',
                     width: '100%',
                     maxWidth: '850px',
                     margin: '0 auto',
-                    height: '44px',
+                    height: '42px',
                     position: 'relative'
                 }}>
-                    {/* Search Bar (Expanded) */}
+                    {/* Search Bar (Overlay) */}
                     <div style={{
                         position: 'absolute',
                         left: 0,
@@ -187,18 +212,18 @@ const HomeView = ({
                         display: 'flex',
                         alignItems: 'center',
                         background: 'var(--bg-card)',
-                        borderRadius: '12px',
-                        padding: '0 0.5rem',
-                        gap: '0.5rem',
+                        borderRadius: '10px',
+                        padding: '0 0.6rem',
+                        gap: '0.4rem',
                         opacity: isSearchOpen ? 1 : 0,
                         pointerEvents: isSearchOpen ? 'auto' : 'none',
-                        transform: isSearchOpen ? 'scale(1)' : 'scale(0.95)',
-                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transform: isSearchOpen ? 'scale(1)' : 'scale(0.96)',
+                        transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                         border: '1px solid var(--naver-green)',
                         zIndex: 10,
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)'
                     }}>
-                        <Search size={18} color="var(--naver-green)" />
+                        <Search size={17} color="var(--naver-green)" />
                         <input
                             autoFocus={isSearchOpen}
                             placeholder="글 제목, 내용 검색..."
@@ -209,7 +234,7 @@ const HomeView = ({
                                 background: 'transparent',
                                 border: 'none',
                                 color: 'var(--text-main)',
-                                fontSize: '0.95rem',
+                                fontSize: '0.9rem',
                                 outline: 'none'
                             }}
                         />
@@ -222,10 +247,16 @@ const HomeView = ({
                                     color: 'var(--text-muted)',
                                     cursor: 'pointer',
                                     padding: '4px',
-                                    display: 'flex'
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '4px',
+                                    transition: 'background 0.2s'
                                 }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             >
-                                <X size={16} />
+                                <X size={15} />
                             </button>
                         )}
                         <button
@@ -233,20 +264,23 @@ const HomeView = ({
                             style={{
                                 background: 'rgba(255,255,255,0.1)',
                                 border: 'none',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 color: 'var(--text-dim)',
                                 cursor: 'pointer',
-                                padding: '6px 12px',
-                                fontSize: '0.8rem',
+                                padding: '5px 10px',
+                                fontSize: '0.75rem',
                                 fontWeight: '600',
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.2s'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
                         >
                             닫기
                         </button>
                     </div>
 
-                    {/* Tabs (Hidden when search is open) */}
+                    {/* Tabs */}
                     <div style={{
                         display: 'flex',
                         width: '100%',
@@ -258,15 +292,28 @@ const HomeView = ({
                             onClick={() => handleTabChange('active')}
                             style={{
                                 flex: 1,
-                                padding: '0.7rem',
+                                padding: '0 0.5rem',
                                 background: 'transparent',
                                 border: 'none',
-                                borderBottom: sessionTab === 'active' ? '2px solid var(--naver-green)' : '2px solid transparent',
+                                borderBottom: sessionTab === 'active' ? '2.5px solid var(--naver-green)' : '2.5px solid transparent',
                                 color: sessionTab === 'active' ? 'var(--text-main)' : 'var(--text-dim)',
-                                fontSize: '0.95rem',
+                                fontSize: '0.9rem',
                                 fontWeight: sessionTab === 'active' ? '800' : '500',
                                 cursor: 'pointer',
-                                transition: 'all 0.3s ease'
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (sessionTab !== 'active') {
+                                    e.currentTarget.style.color = 'var(--text-main)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (sessionTab !== 'active') {
+                                    e.currentTarget.style.color = 'var(--text-dim)';
+                                }
                             }}
                         >
                             작성 중 ({active.length})
@@ -275,15 +322,28 @@ const HomeView = ({
                             onClick={() => handleTabChange('published')}
                             style={{
                                 flex: 1,
-                                padding: '0.7rem',
+                                padding: '0 0.5rem',
                                 background: 'transparent',
                                 border: 'none',
-                                borderBottom: sessionTab === 'published' ? '2px solid var(--naver-green)' : '2px solid transparent',
+                                borderBottom: sessionTab === 'published' ? '2.5px solid var(--naver-green)' : '2.5px solid transparent',
                                 color: sessionTab === 'published' ? 'var(--text-main)' : 'var(--text-dim)',
-                                fontSize: '0.95rem',
+                                fontSize: '0.9rem',
                                 fontWeight: sessionTab === 'published' ? '800' : '500',
                                 cursor: 'pointer',
-                                transition: 'all 0.3s ease'
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (sessionTab !== 'published') {
+                                    e.currentTarget.style.color = 'var(--text-main)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (sessionTab !== 'published') {
+                                    e.currentTarget.style.color = 'var(--text-dim)';
+                                }
                             }}
                         >
                             발행됨 ({published.length})
@@ -293,15 +353,25 @@ const HomeView = ({
                             style={{
                                 background: 'transparent',
                                 border: 'none',
+                                borderBottom: '2.5px solid transparent',
                                 color: 'var(--text-dim)',
                                 cursor: 'pointer',
-                                padding: '0.5rem 0.8rem',
+                                padding: '0 0.7rem',
                                 display: 'flex',
                                 alignItems: 'center',
-                                transition: 'color 0.2s'
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.color = 'var(--naver-green)';
+                                e.currentTarget.style.transform = 'scale(1.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'var(--text-dim)';
+                                e.currentTarget.style.transform = 'scale(1)';
                             }}
                         >
-                            <Search size={18} />
+                            <Search size={17} />
                         </button>
                     </div>
                 </div>
@@ -313,8 +383,8 @@ const HomeView = ({
                 style={{
                     height: '100%',
                     overflowY: 'auto',
-                    paddingTop: '155px', // Profile + Tabs height (reduced)
-                    paddingBottom: '100px'
+                    paddingTop: '130px', // Reduced: 155→130
+                    paddingBottom: '80px'
                 }}
             >
                 <div style={{ maxWidth: '850px', margin: '0 auto', padding: '0 1rem' }}>
@@ -323,7 +393,7 @@ const HomeView = ({
                             textAlign: 'center',
                             color: 'var(--text-dim)',
                             padding: '3rem 1rem',
-                            fontSize: '0.95rem'
+                            fontSize: '0.9rem'
                         }}>
                             {searchQuery ? '검색 결과가 없습니다.' : '아직 작성된 글이 없습니다.'}
                         </div>
@@ -348,12 +418,22 @@ const HomeView = ({
                                         }}
                                         style={{
                                             padding: '1rem',
-                                            marginBottom: '0.8rem',
+                                            marginBottom: '0.6rem', // Reduced: 0.8→0.6
                                             cursor: 'pointer',
                                             borderRadius: '12px',
-                                            transition: 'all 0.2s ease',
+                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                                             position: 'relative',
-                                            border: isRepresentative ? '2px solid var(--naver-green)' : '1px solid rgba(255,255,255,0.05)'
+                                            border: isRepresentative ? '2px solid var(--naver-green)' : '1px solid rgba(255,255,255,0.05)',
+                                            transform: 'translateY(0)',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = '0 4px 16px rgba(3,199,90,0.15)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
                                         }}
                                     >
                                         {isRepresentative && (
@@ -363,38 +443,44 @@ const HomeView = ({
                                                 right: '0.5rem',
                                                 background: 'var(--naver-green)',
                                                 borderRadius: '50%',
-                                                width: '24px',
-                                                height: '24px',
+                                                width: '22px',
+                                                height: '22px',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'center'
+                                                justifyContent: 'center',
+                                                boxShadow: '0 2px 8px rgba(3,199,90,0.3)'
                                             }}>
-                                                <Star size={14} fill="white" color="white" />
+                                                <Star size={12} fill="white" color="white" />
                                             </div>
                                         )}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            marginBottom: '0.4rem'
+                                        }}>
                                             {session.publishedDate ? (
-                                                <BookOpen size={16} color="var(--naver-green)" />
+                                                <BookOpen size={15} color="var(--naver-green)" />
                                             ) : (
-                                                <MessageCircle size={16} color="var(--text-dim)" />
+                                                <MessageCircle size={15} color="var(--text-dim)" />
                                             )}
                                             <h3 style={{
                                                 margin: 0,
-                                                fontSize: '1rem',
+                                                fontSize: '0.95rem',
                                                 fontWeight: '700',
                                                 color: 'var(--text-main)',
                                                 flex: 1,
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap'
+                                                whiteSpace: 'nowrap',
+                                                letterSpacing: '-0.2px'
                                             }}>
                                                 {session.title || '새로운 기록'}
                                             </h3>
                                         </div>
                                         <div style={{
-                                            fontSize: '0.8rem',
-                                            color: 'var(--text-dim)',
-                                            marginBottom: '0.3rem'
+                                            fontSize: '0.75rem',
+                                            color: 'var(--text-dim)'
                                         }}>
                                             {new Date(session.createdAt).toLocaleDateString('ko-KR', {
                                                 month: 'numeric',
@@ -410,22 +496,30 @@ const HomeView = ({
                                     onClick={() => setVisibleCount(prev => prev + 10)}
                                     style={{
                                         width: '100%',
-                                        padding: '0.8rem',
+                                        padding: '0.75rem',
                                         background: 'rgba(255,255,255,0.05)',
                                         border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
+                                        borderRadius: '10px',
                                         color: 'var(--text-dim)',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: '0.5rem',
-                                        fontSize: '0.9rem',
+                                        gap: '0.4rem',
+                                        fontSize: '0.85rem',
                                         fontWeight: '600',
                                         transition: 'all 0.2s'
                                     }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                    }}
                                 >
-                                    더 보기 <ChevronDown size={16} />
+                                    더 보기 <ChevronDown size={15} />
                                 </button>
                             )}
                         </>
@@ -444,20 +538,23 @@ const HomeView = ({
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            zIndex: 998
+                            zIndex: 998,
+                            background: 'rgba(0,0,0,0.2)',
+                            backdropFilter: 'blur(2px)',
+                            animation: 'fadeIn 0.15s ease'
                         }}
                     />
                     <div
                         className="glass"
                         style={{
                             position: 'fixed',
-                            top: contextMenu.y,
-                            left: contextMenu.x,
+                            ...getContextMenuStyle(),
                             zIndex: 999,
-                            borderRadius: '12px',
-                            padding: '0.5rem',
-                            minWidth: '180px',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                            borderRadius: '10px',
+                            padding: '0.4rem',
+                            minWidth: '170px',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                            animation: 'scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                         }}
                     >
                         <button
@@ -467,7 +564,7 @@ const HomeView = ({
                             }}
                             style={{
                                 width: '100%',
-                                padding: '0.7rem',
+                                padding: '0.65rem 0.7rem',
                                 background: 'transparent',
                                 border: 'none',
                                 color: 'var(--text-main)',
@@ -475,21 +572,22 @@ const HomeView = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
-                                borderRadius: '8px',
-                                fontSize: '0.9rem',
-                                transition: 'background 0.2s'
+                                borderRadius: '6px',
+                                fontSize: '0.85rem',
+                                fontWeight: '500',
+                                transition: 'background 0.15s'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                            <Star size={16} />
+                            <Star size={15} />
                             {representativeIds.includes(contextMenu.sessionId) ? '대표 해제' : '대표 설정'}
                         </button>
                         <button
                             onClick={() => handleDeleteSession(contextMenu.sessionId)}
                             style={{
                                 width: '100%',
-                                padding: '0.7rem',
+                                padding: '0.65rem 0.7rem',
                                 background: 'transparent',
                                 border: 'none',
                                 color: '#ff4444',
@@ -497,14 +595,15 @@ const HomeView = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
-                                borderRadius: '8px',
-                                fontSize: '0.9rem',
-                                transition: 'background 0.2s'
+                                borderRadius: '6px',
+                                fontSize: '0.85rem',
+                                fontWeight: '500',
+                                transition: 'background 0.15s'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,68,68,0.1)'}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,68,68,0.12)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                             삭제
                         </button>
                     </div>
