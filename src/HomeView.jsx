@@ -106,8 +106,8 @@ const HomeView = ({
         longPressTimer.current = setTimeout(() => {
             const x = e.clientX || e.touches?.[0]?.clientX || 0;
             const y = e.clientY || e.touches?.[0]?.clientY || 0;
-            setContextMenu({ sessionId, x, y });
-        }, 400); // Reduced: 500→400ms
+            setContextMenu({ visible: true, sessionId, x, y });
+        }, 400);
     };
 
     const handleLongPressEnd = () => {
@@ -121,12 +121,12 @@ const HomeView = ({
         if (window.confirm('이 세션을 삭제하시겠습니까?')) {
             setSessions(prev => prev.filter(s => s.id !== sessionId));
         }
-        setContextMenu(null);
+        setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
     };
 
     // Context menu positioning
     const getContextMenuStyle = () => {
-        if (!contextMenu) return {};
+        if (!contextMenu?.visible) return {};
 
         const menuWidth = 180;
         const menuHeight = 100;
@@ -411,7 +411,7 @@ const HomeView = ({
                                         onTouchStart={(e) => handleLongPressStart(session.id, e)}
                                         onTouchEnd={handleLongPressEnd}
                                         onClick={(e) => {
-                                            if (contextMenu) return;
+                                            if (contextMenu?.visible) return;
                                             setCurrentSessionId(session.id);
                                             setActiveTab('chat');
                                             setView('editor');
@@ -528,10 +528,10 @@ const HomeView = ({
             </div>
 
             {/* Context Menu */}
-            {contextMenu && (
+            {contextMenu?.visible && (
                 <>
                     <div
-                        onClick={() => setContextMenu(null)}
+                        onClick={() => setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 })}
                         style={{
                             position: 'fixed',
                             top: 0,
@@ -560,7 +560,7 @@ const HomeView = ({
                         <button
                             onClick={() => {
                                 toggleRepresentative(contextMenu.sessionId);
-                                setContextMenu(null);
+                                setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
                             }}
                             style={{
                                 width: '100%',

@@ -1473,7 +1473,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r11</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.22r12</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -1621,7 +1621,7 @@ ${chatSummary}`;
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', paddingTop: '70px' }}>
-                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0 0 140px', display: 'flex', justifyContent: 'center' }}>
+                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '1rem 0 140px', display: 'flex', justifyContent: 'center' }}>
                   <div style={{
                     width: previewMode === 'mobile' ? '400px' : previewMode === 'tablet' ? '768px' : '100%',
                     maxWidth: '960px',
