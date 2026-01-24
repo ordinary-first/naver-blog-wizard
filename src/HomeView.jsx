@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Search, X, MessageCircle, Star, BookOpen, ChevronDown, Trash2 } from 'lucide-react';
+import { Search, X, MessageCircle, Star, BookOpen, ChevronDown, Trash2, CheckCircle, Circle } from 'lucide-react';
 
 const HomeView = ({
     naverUser,
@@ -27,6 +27,8 @@ const HomeView = ({
     const scrollContainerRef = useRef(null);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [appHeaderVisible, setAppHeaderVisible] = useState(true);
+    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
 
     // Smooth scroll-based header control
     useEffect(() => {
@@ -104,9 +106,10 @@ const HomeView = ({
     const handleLongPressStart = (sessionId, e) => {
         e.preventDefault();
         longPressTimer.current = setTimeout(() => {
-            const x = e.clientX || e.touches?.[0]?.clientX || 0;
-            const y = e.clientY || e.touches?.[0]?.clientY || 0;
-            setContextMenu({ visible: true, sessionId, x, y });
+            // Enter select mode on long press
+            setIsSelectMode(true);
+            setSelectedIds([sessionId]);
+            setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
         }, 400);
     };
 
@@ -114,6 +117,27 @@ const HomeView = ({
         if (longPressTimer.current) {
             clearTimeout(longPressTimer.current);
             longPressTimer.current = null;
+        }
+    };
+
+    const toggleSelectItem = (sessionId) => {
+        setSelectedIds(prev =>
+            prev.includes(sessionId)
+                ? prev.filter(id => id !== sessionId)
+                : [...prev, sessionId]
+        );
+    };
+
+    const exitSelectMode = () => {
+        setIsSelectMode(false);
+        setSelectedIds([]);
+    };
+
+    const handleDeleteSelected = () => {
+        if (selectedIds.length === 0) return;
+        if (window.confirm(`${selectedIds.length}개의 세션을 삭제하시겠습니까?`)) {
+            setSessions(prev => prev.filter(s => !selectedIds.includes(s.id)));
+            exitSelectMode();
         }
     };
 
@@ -401,42 +425,63 @@ const HomeView = ({
                         <>
                             {filteredSessions.slice(0, visibleCount).map((session) => {
                                 const isRepresentative = representativeIds.includes(session.id);
+                                const isSelected = selectedIds.includes(session.id);
                                 return (
                                     <div
                                         key={session.id}
                                         className="glass reveal"
-                                        onMouseDown={(e) => handleLongPressStart(session.id, e)}
+                                        onMouseDown={(e) => !isSelectMode && handleLongPressStart(session.id, e)}
                                         onMouseUp={handleLongPressEnd}
                                         onMouseLeave={handleLongPressEnd}
-                                        onTouchStart={(e) => handleLongPressStart(session.id, e)}
+                                        onTouchStart={(e) => !isSelectMode && handleLongPressStart(session.id, e)}
                                         onTouchEnd={handleLongPressEnd}
                                         onClick={(e) => {
                                             if (contextMenu?.visible) return;
+                                            if (isSelectMode) {
+                                                toggleSelectItem(session.id);
+                                                return;
+                                            }
                                             setCurrentSessionId(session.id);
                                             setActiveTab('chat');
                                             setView('editor');
                                         }}
                                         style={{
                                             padding: '1rem',
-                                            marginBottom: '0.6rem', // Reduced: 0.8→0.6
+                                            paddingLeft: isSelectMode ? '3rem' : '1rem',
+                                            marginBottom: '0.6rem',
                                             cursor: 'pointer',
                                             borderRadius: '12px',
                                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                                             position: 'relative',
-                                            border: isRepresentative ? '2px solid var(--naver-green)' : '1px solid rgba(255,255,255,0.05)',
+                                            border: isSelected ? '2px solid var(--naver-green)' : isRepresentative ? '2px solid var(--naver-green)' : '1px solid rgba(255,255,255,0.05)',
+                                            background: isSelected ? 'rgba(3,199,90,0.1)' : undefined,
                                             transform: 'translateY(0)',
                                             boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                                         }}
                                         onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(-2px)';
-                                            e.currentTarget.style.boxShadow = '0 4px 16px rgba(3,199,90,0.15)';
+                                            if (!isSelectMode) {
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = '0 4px 16px rgba(3,199,90,0.15)';
+                                            }
                                         }}
                                         onMouseLeave={(e) => {
                                             e.currentTarget.style.transform = 'translateY(0)';
                                             e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
                                         }}
                                     >
-                                        {isRepresentative && (
+                                        {/* Select checkbox */}
+                                        {isSelectMode && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                left: '0.8rem',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                color: isSelected ? 'var(--naver-green)' : 'var(--text-dim)'
+                                            }}>
+                                                {isSelected ? <CheckCircle size={20} /> : <Circle size={20} />}
+                                            </div>
+                                        )}
+                                        {isRepresentative && !isSelectMode && (
                                             <div style={{
                                                 position: 'absolute',
                                                 top: '0.5rem',
@@ -527,8 +572,65 @@ const HomeView = ({
                 </div>
             </div>
 
+            {/* Select Mode Action Bar */}
+            {isSelectMode && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    background: 'var(--bg-dark)',
+                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                    padding: '0.8rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    zIndex: 100,
+                    backdropFilter: 'blur(10px)'
+                }}>
+                    <button
+                        onClick={exitSelectMode}
+                        style={{
+                            background: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: 'var(--text-main)',
+                            padding: '0.6rem 1rem',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: '600'
+                        }}
+                    >
+                        취소
+                    </button>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+                        {selectedIds.length}개 선택됨
+                    </span>
+                    <button
+                        onClick={handleDeleteSelected}
+                        disabled={selectedIds.length === 0}
+                        style={{
+                            background: selectedIds.length > 0 ? '#ff4444' : 'rgba(255,68,68,0.3)',
+                            border: 'none',
+                            color: 'white',
+                            padding: '0.6rem 1rem',
+                            borderRadius: '8px',
+                            cursor: selectedIds.length > 0 ? 'pointer' : 'not-allowed',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem'
+                        }}
+                    >
+                        <Trash2 size={16} /> 삭제
+                    </button>
+                </div>
+            )}
+
             {/* Context Menu */}
-            {contextMenu?.visible && (
+            {contextMenu?.visible && !isSelectMode && (
                 <>
                     <div
                         onClick={() => setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 })}
