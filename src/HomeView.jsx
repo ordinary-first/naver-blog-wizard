@@ -21,13 +21,14 @@ const HomeView = ({
     contextMenu,
     setContextMenu,
     toggleRepresentative,
-    setHeaderVisible
+    setHeaderVisible,
+    isSelectMode,
+    setIsSelectMode
 }) => {
     const longPressTimer = useRef(null);
     const scrollContainerRef = useRef(null);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [appHeaderVisible, setAppHeaderVisible] = useState(true);
-    const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
 
     // Smooth scroll-based header control

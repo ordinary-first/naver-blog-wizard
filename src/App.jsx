@@ -53,6 +53,7 @@ const App = () => {
   const [showAllChats, setShowAllChats] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, sessionId: null, x: 0, y: 0 });
+  const [isSelectMode, setIsSelectMode] = useState(false);
 
   // --- Supabase Integration ---
   const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase } = useSupabase(naverUser);
@@ -1496,6 +1497,7 @@ ${chatSummary}`;
           setActiveTab={setActiveTab} representativeIds={representativeIds}
           setRepresentativeIds={setRepresentativeIds} contextMenu={contextMenu}
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
+          isSelectMode={isSelectMode} setIsSelectMode={setIsSelectMode}
         /> : view === 'settings' ? <SettingsView /> : (
           <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
             {/* Fixed Tab Container */}
@@ -1809,7 +1811,7 @@ ${chatSummary}`;
           </div>
         )}
 
-        {view === 'home' && (
+        {view === 'home' && !isSelectMode && (
           <button className="cta-button button-hover reveal" onClick={createNewSession} style={{ animationDelay: '0.3s', padding: '0.8rem 1.5rem', fontSize: '0.9rem', borderRadius: '16px' }}>
             <Plus size={18} />
             일상을 기록하기
