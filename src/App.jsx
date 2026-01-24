@@ -71,9 +71,14 @@ const App = () => {
           const savedSessions = localStorage.getItem('wizard_sessions');
           if (savedSessions) {
             const localSessions = JSON.parse(savedSessions);
-            setSessions(localSessions);
+            // Normalize publishedAt field
+            const normalizedSessions = localSessions.map(s => ({
+              ...s,
+              publishedAt: s.publishedAt && s.publishedAt !== '' ? s.publishedAt : null
+            }));
+            setSessions(normalizedSessions);
             // Migrate localStorage data to Supabase (with proper async handling)
-            Promise.all(localSessions.map(session =>
+            Promise.all(normalizedSessions.map(session =>
               saveSessionToSupabase({
                 ...session,
                 id: session.id.toString().includes('-') ? session.id : crypto.randomUUID()
@@ -221,7 +226,13 @@ const App = () => {
     const savedSessions = localStorage.getItem('wizard_sessions');
     if (savedSessions) {
       try {
-        setSessions(JSON.parse(savedSessions));
+        const loadedSessions = JSON.parse(savedSessions);
+        // Normalize publishedAt field (ensure undefined/empty becomes null)
+        const normalizedSessions = loadedSessions.map(s => ({
+          ...s,
+          publishedAt: s.publishedAt && s.publishedAt !== '' ? s.publishedAt : null
+        }));
+        setSessions(normalizedSessions);
       } catch (err) {
         console.error('Failed to parse saved sessions:', err);
         localStorage.removeItem('wizard_sessions');
@@ -230,6 +241,7 @@ const App = () => {
           id: Date.now(),
           title: '나의 첫 기록 ✍️',
           status: 'active',
+          publishedAt: null,
           messages: [{
             id: 1,
             sender: 'ai',
@@ -247,6 +259,7 @@ const App = () => {
         id: Date.now(),
         title: '나의 첫 기록 ✍️',
         status: 'active',
+        publishedAt: null,
         messages: [{
           id: 1,
           sender: 'ai',
@@ -342,6 +355,7 @@ const App = () => {
       id: crypto.randomUUID(), // Use UUID for Supabase compatibility
       title: '새로운 기록 💬',
       status: 'active',
+      publishedAt: null,
       messages: [{
         id: Date.now() + 1,
         sender: 'ai',
@@ -1515,11 +1529,10 @@ ${chatSummary}`;
               className="tab-container"
               style={{
                 position: 'fixed',
-                top: headerVisible ? '60px' : '0px',
-                left: 0,
-                right: 0,
+                top: headerVisible ? '46px' : '0px',
+                left: '0.6rem',
+                right: '0.6rem',
                 zIndex: 100,
-                margin: '0 0.6rem',
                 transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 background: 'var(--bg-dark)',
                 backdropFilter: 'blur(10px)',
@@ -1531,9 +1544,9 @@ ${chatSummary}`;
             </div>
 
             {activeTab === 'chat' ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', paddingTop: '60px' }}>
-                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0.8rem 1rem 0' }}>
-                  <div className="chat-window" style={{ maxWidth: '750px', margin: '0 auto', width: '100%', paddingBottom: '160px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+                <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0 1rem 0' }}>
+                  <div className="chat-window" style={{ maxWidth: '750px', margin: '0 auto', width: '100%', paddingBottom: '160px', paddingTop: '106px' }}>
                     <div className="glass-heavy reveal" style={{ padding: '0.5rem 0.8rem', marginBottom: '1rem', display: 'flex', gap: '0.6rem', alignItems: 'center', border: '1px solid var(--nave-green)', justifyContent: 'space-between', borderRadius: '12px' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: 0 }}>
                         <div className="floating-action" style={{ background: aiResponsesEnabled ? 'var(--naver-green)' : 'var(--text-muted)', width: '28px', height: '28px', minWidth: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}><Sparkles size={14} color="white" /></div>
@@ -1618,13 +1631,13 @@ ${chatSummary}`;
                 </div>
               </div>
             ) : (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', paddingTop: '60px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
                 <div className="scroll-container" style={{ flex: 1, overflowY: 'auto', padding: '0.8rem 0 140px', display: 'flex', justifyContent: 'center' }}>
                   <div style={{
                     width: previewMode === 'mobile' ? '400px' : previewMode === 'tablet' ? '768px' : '100%',
                     maxWidth: '960px',
                     margin: '0 auto',
-                    padding: previewMode === 'mobile' ? '0 1rem' : '0 2rem',
+                    padding: previewMode === 'mobile' ? '106px 1rem 0' : '106px 2rem 0', // Added top padding here
                     transition: 'width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', marginTop: '0' }}>
