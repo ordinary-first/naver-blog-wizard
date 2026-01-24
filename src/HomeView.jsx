@@ -89,8 +89,24 @@ const HomeView = ({
         setAppHeaderVisible(true);
     };
 
-    const active = sessions.filter(s => s.publishedDate === null);
-    const published = sessions.filter(s => s.publishedDate !== null);
+    const active = sessions.filter(s => !s.publishedAt || s.publishedAt === null || s.publishedAt === undefined || s.publishedAt === '');
+    const published = sessions.filter(s => s.publishedAt && s.publishedAt !== null && s.publishedAt !== undefined && s.publishedAt !== '');
+
+    console.log('HomeView sessions filter:', {
+        totalSessions: sessions.length,
+        active: active.length,
+        published: published.length,
+        allSessionsData: sessions.map(s => ({
+            id: String(s.id).substring(0, 8),
+            title: s.title,
+            publishedAt: s.publishedAt,
+            publishedAtType: typeof s.publishedAt,
+            publishedAtValue: JSON.stringify(s.publishedAt),
+            shouldBeActive: !s.publishedAt || s.publishedAt === null || s.publishedAt === undefined || s.publishedAt === '',
+            messages: s.messages.length
+        }))
+    });
+
     const currentSessions = sessionTab === 'active' ? active : published;
 
     const filteredSessions = searchQuery.trim()
@@ -459,7 +475,7 @@ const HomeView = ({
                                             gap: '0.5rem',
                                             marginBottom: '0.4rem'
                                         }}>
-                                            {session.publishedDate ? (
+                                            {session.publishedAt ? (
                                                 <BookOpen size={15} color="var(--naver-green)" />
                                             ) : (
                                                 <MessageCircle size={15} color="var(--text-dim)" />

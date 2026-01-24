@@ -128,12 +128,12 @@ export const useSupabase = (naverUser) => {
             if (error) throw error;
 
             // Transform DB structure to match App state structure
-            return sessions.map(s => ({
+            const transformed = sessions.map(s => ({
                 id: s.id,
                 title: s.title,
                 status: s.status,
                 isRepresentative: s.is_representative,
-                publishedAt: s.published_at,
+                publishedAt: s.published_at && s.published_at !== '' ? s.published_at : null,
                 createdAt: s.created_at,
                 messages: (s.messages || [])
                     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -147,6 +147,15 @@ export const useSupabase = (naverUser) => {
                 post: s.post_data || { title: '', content: [], tags: [] } // Load post data or default
             }));
 
+            console.log('Fetched sessions from DB:', transformed.map(s => ({
+                id: s.id,
+                title: s.title,
+                publishedAt: s.publishedAt,
+                publishedAtType: typeof s.publishedAt
+            })));
+
+            return transformed;
+
         } catch (error) {
             console.error('Fetch Sessions Error:', error);
             return [];
@@ -158,6 +167,13 @@ export const useSupabase = (naverUser) => {
         if (!isSupabaseReady || !supabaseUserId) return;
 
         try {
+            console.log('Saving session to DB:', {
+                id: session.id,
+                title: session.title,
+                publishedAt: session.publishedAt,
+                publishedAtType: typeof session.publishedAt
+            });
+
             // 1. Session upsert
             const { error: sessionError } = await supabase
                 .from('chat_sessions')
@@ -167,7 +183,7 @@ export const useSupabase = (naverUser) => {
                     title: session.title,
                     status: session.status,
                     is_representative: session.isRepresentative || false,
-                    published_at: session.publishedAt,
+                    published_at: session.publishedAt || null, // Explicitly set NULL if falsy
                     created_at: session.createdAt || new Date().toISOString(),
                     post_data: session.post || {} // Save post data
                 }, { onConflict: 'id' });
