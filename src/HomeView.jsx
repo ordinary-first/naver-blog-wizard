@@ -138,20 +138,41 @@ const HomeView = ({
     const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return;
         if (window.confirm(`${selectedIds.length}개의 세션을 삭제하시겠습니까?`)) {
+            console.log('Deleting sessions:', selectedIds);
+            const deletedIds = [];
+
             // Delete from Supabase
             for (const id of selectedIds) {
-                await deleteSessionFromSupabase(id);
+                const success = await deleteSessionFromSupabase(id);
+                if (success !== false) {
+                    deletedIds.push(id);
+                }
             }
-            // Update local state
-            setSessions(prev => prev.filter(s => !selectedIds.includes(s.id)));
+
+            console.log('Successfully deleted:', deletedIds);
+
+            // Update local state only for successfully deleted items
+            if (deletedIds.length > 0) {
+                setSessions(prev => prev.filter(s => !deletedIds.includes(s.id)));
+            }
+
+            if (deletedIds.length < selectedIds.length) {
+                alert(`${selectedIds.length - deletedIds.length}개의 세션 삭제에 실패했습니다.`);
+            }
+
             exitSelectMode();
         }
     };
 
     const handleDeleteSession = async (sessionId) => {
         if (window.confirm('이 세션을 삭제하시겠습니까?')) {
-            await deleteSessionFromSupabase(sessionId);
-            setSessions(prev => prev.filter(s => s.id !== sessionId));
+            console.log('Deleting single session:', sessionId);
+            const success = await deleteSessionFromSupabase(sessionId);
+            if (success !== false) {
+                setSessions(prev => prev.filter(s => s.id !== sessionId));
+            } else {
+                alert('세션 삭제에 실패했습니다.');
+            }
         }
         setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
     };

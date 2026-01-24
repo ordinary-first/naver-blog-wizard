@@ -207,12 +207,37 @@ export const useSupabase = (naverUser) => {
 
     // 5. Delete Session
     const deleteSessionFromSupabase = async (sessionId) => {
-        if (!isSupabaseReady) return;
+        if (!isSupabaseReady) {
+            console.warn('Supabase not ready, cannot delete session:', sessionId);
+            return false;
+        }
         try {
-            await supabase.from('chat_sessions').delete().eq('id', sessionId);
+            // First delete related messages (due to foreign key)
+            const { error: msgDeleteError } = await supabase
+                .from('chat_messages')
+                .delete()
+                .eq('session_id', sessionId);
+
+            if (msgDeleteError) {
+                console.error('Error deleting messages:', msgDeleteError);
+            }
+
+            // Then delete the session
+            const { error: sessionError } = await supabase
+                .from('chat_sessions')
+                .delete()
+                .eq('id', sessionId);
+
+            if (sessionError) {
+                console.error('Error deleting session:', sessionError);
+                return false;
+            }
+
             console.log('Session deleted from Supabase:', sessionId);
+            return true;
         } catch (error) {
             console.error('Delete Session Error:', error);
+            return false;
         }
     };
 
