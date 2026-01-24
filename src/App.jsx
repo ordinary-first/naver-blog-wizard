@@ -373,23 +373,22 @@ const App = () => {
 
   // --- Chat Logic ---
   const handleSendMessage = async (text, type = 'text') => {
-    // Block empty or null content completely
     if (!text || (typeof text === 'string' && text.trim() === '')) return;
     if (!currentSessionId) return;
 
-    const newMessage = {
-      id: Date.now(),
+    const userMessage = {
+      id: crypto.randomUUID(),
       sender: 'user',
       type: type,
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    console.log('Creating new message:', { id: newMessage.id, type: newMessage.type, contentPreview: text?.substring(0, 50) });
+    // 1. Show user message IMMEDIATELY
+    setSessions(prev => prev.map(s => s.id === currentSessionId ?
+      { ...s, messages: [...s.messages, userMessage] } : s));
 
-    // Collect all messages to add in a single batch to avoid race conditions
-    const newMessages = [newMessage];
-
+    // 2. Then get AI response (async, non-blocking for UI)
     if (aiResponsesEnabled && apiKeys.gemini) {
       try {
         const genAI = new GoogleGenerativeAI(apiKeys.gemini);
@@ -397,30 +396,28 @@ const App = () => {
         const reactionPrompt = `다정한 친구이자 블로그 도우미로서 자연스러운 리액션을 해주세요. 1~2문장 정도로 부드럽게 공감해 주되, 너무 길지는 않게 답변하세요. 질문은 하지 마세요. 사용자 메시지: ${type === 'text' ? text : '[사진을 보냈습니다]'}`;
         const result = await model.generateContent(reactionPrompt);
         const aiMessage = {
-          id: Date.now() + 1,
+          id: crypto.randomUUID(),
           sender: 'ai',
           type: 'text',
           content: result.response.text(),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        newMessages.push(aiMessage);
+        // 3. Add AI response after it arrives
+        setSessions(prev => prev.map(s => s.id === currentSessionId ?
+          { ...s, messages: [...s.messages, aiMessage] } : s));
       } catch (err) {
         console.error('AI response error:', err);
-        // Add error message for user feedback
         const errorMessage = {
-          id: Date.now() + 1,
+          id: crypto.randomUUID(),
           sender: 'ai',
           type: 'text',
           content: '죄송합니다, 응답 생성 중 오류가 발생했습니다.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        newMessages.push(errorMessage);
+        setSessions(prev => prev.map(s => s.id === currentSessionId ?
+          { ...s, messages: [...s.messages, errorMessage] } : s));
       }
     }
-
-    // Update sessions with all messages at once
-    setSessions(prev => prev.map(s => s.id === currentSessionId ?
-      { ...s, messages: [...s.messages, ...newMessages] } : s));
   };
 
   // Compress image heavily optimized for mobile compatibility
