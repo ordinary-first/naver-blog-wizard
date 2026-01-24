@@ -249,9 +249,33 @@ export const useSupabase = (naverUser) => {
         }
 
         try {
+            // Validate input
+            if (!base64Image || typeof base64Image !== 'string') {
+                console.error('Invalid base64Image input:', typeof base64Image);
+                return null;
+            }
+
+            if (!base64Image.startsWith('data:')) {
+                console.error('base64Image does not start with data:', base64Image.substring(0, 50));
+                return null;
+            }
+
+            // Extract mime type with better error handling
+            const mimeMatch = base64Image.match(/data:([^;]+);/);
+            if (!mimeMatch) {
+                console.error('Could not extract mime type from base64 string');
+                return null;
+            }
+            const mimeType = mimeMatch[1];
+            console.log('Detected mime type:', mimeType);
+
             // Convert base64 to Blob
             const base64Data = base64Image.split(',')[1];
-            const mimeType = base64Image.match(/data:([^;]+);/)[1];
+            if (!base64Data) {
+                console.error('Could not extract base64 data');
+                return null;
+            }
+
             const byteCharacters = atob(base64Data);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
@@ -259,6 +283,7 @@ export const useSupabase = (naverUser) => {
             }
             const byteArray = new Uint8Array(byteNumbers);
             const blob = new Blob([byteArray], { type: mimeType });
+            console.log('Blob created, size:', blob.size, 'bytes');
 
             // Generate unique filename
             const fileExt = mimeType.split('/')[1];

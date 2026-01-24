@@ -1,4 +1,4 @@
-// v01.24r3-react-router
+// v01.24r4-ios-image-fix
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -478,17 +478,33 @@ const App = () => {
     }
   };
 
-  // Compress image heavily optimized for mobile compatibility
+  // Compress image heavily optimized for mobile compatibility (especially iOS)
   const compressImage = (file, maxSize = IMAGE_MAX_SIZE, quality = IMAGE_QUALITY) => {
     return new Promise((resolve) => {
+      // iOS Safari has a limit of ~16 megapixels for canvas
+      const IOS_MAX_PIXELS = 4096 * 4096; // Safe limit for iOS
+
       const img = new Image();
+      // Required for iOS CORS
+      img.crossOrigin = 'anonymous';
+
       // Create URL safely
       const objectUrl = URL.createObjectURL(file);
 
       img.onload = () => {
         try {
+          console.log(`Image loaded: ${img.width}x${img.height}, file type: ${file.type}`);
+
+          // Check if image exceeds iOS limit and reduce more aggressively
+          const totalPixels = img.width * img.height;
+          let effectiveMaxSize = maxSize;
+          if (totalPixels > IOS_MAX_PIXELS) {
+            console.log('Large image detected, reducing size for iOS compatibility');
+            effectiveMaxSize = Math.min(maxSize, 800); // More aggressive for large images
+          }
+
           // If image is small enough, use original (performance optimization)
-          if (img.width <= maxSize && img.height <= maxSize && file.size < 500 * 1024) {
+          if (img.width <= effectiveMaxSize && img.height <= effectiveMaxSize && file.size < 500 * 1024) {
             URL.revokeObjectURL(objectUrl);
             // Convert file to base64 for consistency
             const reader = new FileReader();
@@ -504,26 +520,45 @@ const App = () => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d', { willReadFrequently: true }); // Optimization hint
 
+          if (!ctx) {
+            console.error('Failed to get canvas context');
+            // Fallback to FileReader
+            URL.revokeObjectURL(objectUrl);
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+            return;
+          }
+
           let { width, height } = img;
 
-          // Aggressive resizing for mobile
-          if (width > height && width > maxSize) {
-            height = (height * maxSize) / width;
-            width = maxSize;
-          } else if (height > maxSize) {
-            width = (width * maxSize) / height;
-            height = maxSize;
+          // Aggressive resizing for mobile (use effectiveMaxSize for iOS compatibility)
+          if (width > height && width > effectiveMaxSize) {
+            height = (height * effectiveMaxSize) / width;
+            width = effectiveMaxSize;
+          } else if (height > effectiveMaxSize) {
+            width = (width * effectiveMaxSize) / height;
+            height = effectiveMaxSize;
           }
+
+          // Round dimensions to integers (required for canvas)
+          width = Math.round(width);
+          height = Math.round(height);
 
           canvas.width = width;
           canvas.height = height;
 
           // Clear canvas to prevent black background transparency issues
           ctx.clearRect(0, 0, width, height);
+
+          // Draw with white background first (for HEIC/transparent images)
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
 
           // Force JPEG to avoid transparency issues rendering as black
           const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          console.log(`Compressed to ${width}x${height}, data length: ${compressedDataUrl.length}`);
 
           URL.revokeObjectURL(objectUrl);
           resolve(compressedDataUrl);
@@ -1517,7 +1552,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.24r3</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.24r4</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
