@@ -1,4 +1,4 @@
-// v01.24-fix-sessions
+// v01.24r2-fix-delete
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
