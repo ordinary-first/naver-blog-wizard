@@ -147,13 +147,6 @@ export const useSupabase = (naverUser) => {
                 post: s.post_data || { title: '', content: [], tags: [] } // Load post data or default
             }));
 
-            console.log('Fetched sessions from DB:', transformed.map(s => ({
-                id: s.id,
-                title: s.title,
-                publishedAt: s.publishedAt,
-                publishedAtType: typeof s.publishedAt
-            })));
-
             return transformed;
 
         } catch (error) {
@@ -167,13 +160,6 @@ export const useSupabase = (naverUser) => {
         if (!isSupabaseReady || !supabaseUserId) return;
 
         try {
-            console.log('Saving session to DB:', {
-                id: session.id,
-                title: session.title,
-                publishedAt: session.publishedAt,
-                publishedAtType: typeof session.publishedAt
-            });
-
             // 1. Session upsert
             const { error: sessionError } = await supabase
                 .from('chat_sessions')

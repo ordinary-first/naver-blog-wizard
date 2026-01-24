@@ -58,37 +58,66 @@ const App = () => {
   const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase } = useSupabase(naverUser);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Load Sessions from Supabase (Priority over localStorage)
+  // Load Sessions from Supabase (SINGLE SOURCE OF TRUTH)
   useEffect(() => {
     if (isSupabaseReady && supabaseUserId && !isDataLoaded) {
       console.log('Fetching sessions from Supabase...');
-      fetchSessions().then(data => {
+      fetchSessions().then(async data => {
         if (data && data.length > 0) {
           console.log('Loaded', data.length, 'sessions from Supabase');
           setSessions(data);
+          localStorage.removeItem('wizard_sessions'); // Clean up old localStorage
         } else {
-          console.log('No sessions in Supabase, checking localStorage...');
-          // Fallback to localStorage if Supabase is empty
+          // Check for localStorage migration (one-time)
           const savedSessions = localStorage.getItem('wizard_sessions');
           if (savedSessions) {
-            const localSessions = JSON.parse(savedSessions);
-            // Normalize publishedAt field
-            const normalizedSessions = localSessions.map(s => ({
-              ...s,
-              publishedAt: s.publishedAt && s.publishedAt !== '' ? s.publishedAt : null
-            }));
-            setSessions(normalizedSessions);
-            // Migrate localStorage data to Supabase (with proper async handling)
-            Promise.all(normalizedSessions.map(session =>
-              saveSessionToSupabase({
-                ...session,
-                id: session.id.toString().includes('-') ? session.id : crypto.randomUUID()
-              })
-            )).catch(err => console.error('Migration error:', err));
+            try {
+              console.log('Migrating localStorage to Supabase...');
+              const localSessions = JSON.parse(savedSessions);
+              const migratedSessions = localSessions.map(s => ({
+                ...s,
+                id: crypto.randomUUID(),
+                publishedAt: null
+              }));
+
+              for (const session of migratedSessions) {
+                await saveSessionToSupabase(session);
+              }
+
+              setSessions(migratedSessions);
+              localStorage.removeItem('wizard_sessions');
+              console.log('Migration complete');
+            } catch (err) {
+              console.error('Migration error:', err);
+              createInitialSession();
+            }
+          } else {
+            // New user - create initial session
+            createInitialSession();
           }
         }
         setIsDataLoaded(true);
       });
+    }
+
+    function createInitialSession() {
+      const initialSession = {
+        id: crypto.randomUUID(),
+        title: '나의 첫 기록 ✍️',
+        status: 'active',
+        publishedAt: null,
+        messages: [{
+          id: crypto.randomUUID(),
+          sender: 'ai',
+          type: 'text',
+          content: '안녕하세요! 당신의 소중한 순간을 블로그로 만들어드릴 AI 위저드입니다. 사진이나 오늘 있었던 일들을 편하게 말씀해 주세요!',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }],
+        post: { title: '', content: [], tags: [] },
+        createdAt: new Date().toISOString()
+      };
+      setSessions([initialSession]);
+      saveSessionToSupabase(initialSession);
     }
   }, [isSupabaseReady, supabaseUserId, isDataLoaded]);
 
@@ -127,12 +156,7 @@ const App = () => {
   // Auto-save session to Supabase when it changes (debounced)
   const saveTimeoutRef = useRef(null);
 
-  // 1. Always sync to localStorage for immediate backup
-  useEffect(() => {
-    if (sessions.length > 0) {
-      localStorage.setItem('wizard_sessions', JSON.stringify(sessions));
-    }
-  }, [sessions]);
+  // Sessions are saved ONLY to Supabase (no localStorage backup)
 
   // 2. Sync to Supabase (Debounced)
   useEffect(() => {
@@ -223,56 +247,8 @@ const App = () => {
       setIsDarkMode(savedTheme === 'dark');
     }
 
-    // Load sessions with error handling
-    const savedSessions = localStorage.getItem('wizard_sessions');
-    if (savedSessions) {
-      try {
-        const loadedSessions = JSON.parse(savedSessions);
-        // Normalize publishedAt field (ensure undefined/empty becomes null)
-        const normalizedSessions = loadedSessions.map(s => ({
-          ...s,
-          publishedAt: s.publishedAt && s.publishedAt !== '' ? s.publishedAt : null
-        }));
-        setSessions(normalizedSessions);
-      } catch (err) {
-        console.error('Failed to parse saved sessions:', err);
-        localStorage.removeItem('wizard_sessions');
-        // Initialize with default session on error
-        const initialSession = {
-          id: Date.now(),
-          title: '나의 첫 기록 ✍️',
-          status: 'active',
-          publishedAt: null,
-          messages: [{
-            id: 1,
-            sender: 'ai',
-            type: 'text',
-            content: '안녕하세요! 당신의 소중한 순간을 블로그로 만들어드릴 AI 위저드입니다. 사진이나 오늘 있었던 일들을 편하게 말씀해 주세요!',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }],
-          post: { title: '', content: [], tags: [] },
-          createdAt: new Date().toISOString()
-        };
-        setSessions([initialSession]);
-      }
-    } else {
-      const initialSession = {
-        id: Date.now(),
-        title: '나의 첫 기록 ✍️',
-        status: 'active',
-        publishedAt: null,
-        messages: [{
-          id: 1,
-          sender: 'ai',
-          type: 'text',
-          content: '안녕하세요! 당신의 소중한 순간을 블로그로 만들어드릴 AI 위저드입니다. 사진이나 오늘 있었던 일들을 편하게 말씀해 주세요!',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }],
-        post: { title: '', content: [], tags: [] },
-        createdAt: new Date().toISOString()
-      };
-      setSessions([initialSession]);
-    }
+    // Sessions are loaded from Supabase after login (see useEffect above)
+    // Initial empty state - will be populated after Supabase fetch
   }, []);
 
   // Apply theme to body
