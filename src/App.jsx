@@ -357,6 +357,19 @@ const App = () => {
     if (currentSessionId === id) setView('home');
   };
 
+  // Auto-generate title from first user message
+  const generateSessionTitle = (text, type = 'text') => {
+    if (type === 'image') {
+      return '📷 사진 기록';
+    }
+    // Clean and truncate text for title
+    const cleanText = text.trim().replace(/\n/g, ' ');
+    if (cleanText.length <= 25) {
+      return cleanText;
+    }
+    return cleanText.substring(0, 25) + '...';
+  };
+
   // --- Naver Login Logic ---
   const handleNaverLogin = () => {
     const state = Math.random().toString(36).substring(7);
@@ -385,9 +398,16 @@ const App = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    // 1. Show user message IMMEDIATELY
-    setSessions(prev => prev.map(s => s.id === currentSessionId ?
-      { ...s, messages: [...s.messages, userMessage] } : s));
+    // 1. Show user message IMMEDIATELY + auto-generate title if needed
+    setSessions(prev => prev.map(s => {
+      if (s.id !== currentSessionId) return s;
+
+      // Auto-generate title if still default
+      const shouldUpdateTitle = s.title === '새로운 기록 💬' || s.title === '새로운 기록';
+      const newTitle = shouldUpdateTitle ? generateSessionTitle(text, type) : s.title;
+
+      return { ...s, title: newTitle, messages: [...s.messages, userMessage] };
+    }));
 
     // 2. Then get AI response (async, non-blocking for UI)
     if (aiResponsesEnabled && apiKeys.gemini) {
@@ -1460,7 +1480,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.24r1</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.24r2</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
