@@ -23,7 +23,8 @@ const HomeView = ({
     toggleRepresentative,
     setHeaderVisible,
     isSelectMode,
-    setIsSelectMode
+    setIsSelectMode,
+    deleteSessionFromSupabase
 }) => {
     const longPressTimer = useRef(null);
     const scrollContainerRef = useRef(null);
@@ -134,16 +135,22 @@ const HomeView = ({
         setSelectedIds([]);
     };
 
-    const handleDeleteSelected = () => {
+    const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return;
         if (window.confirm(`${selectedIds.length}개의 세션을 삭제하시겠습니까?`)) {
+            // Delete from Supabase
+            for (const id of selectedIds) {
+                await deleteSessionFromSupabase(id);
+            }
+            // Update local state
             setSessions(prev => prev.filter(s => !selectedIds.includes(s.id)));
             exitSelectMode();
         }
     };
 
-    const handleDeleteSession = (sessionId) => {
+    const handleDeleteSession = async (sessionId) => {
         if (window.confirm('이 세션을 삭제하시겠습니까?')) {
+            await deleteSessionFromSupabase(sessionId);
             setSessions(prev => prev.filter(s => s.id !== sessionId));
         }
         setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
