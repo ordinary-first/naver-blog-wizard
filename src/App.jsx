@@ -1,5 +1,6 @@
-// v01.24r2-fix-delete
+// v01.24r3-react-router
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
   Send, Image as ImageIcon, Sparkles, X, Copy, Settings, Trash2,
@@ -19,10 +20,40 @@ const IMAGE_QUALITY = 0.7; // Increased from 0.6 for better quality
 const IMAGE_COMPRESSION_TIMEOUT = 10000; // Increased from 5000ms to 10000ms
 
 const App = () => {
+  // React Router
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Derive view from URL path
+  const getViewFromPath = () => {
+    if (location.pathname.startsWith('/editor/')) return 'editor';
+    if (location.pathname === '/settings') return 'settings';
+    return 'home';
+  };
+  const view = getViewFromPath();
+
+  // Get sessionId from URL for editor view
+  const getSessionIdFromPath = () => {
+    if (location.pathname.startsWith('/editor/')) {
+      return location.pathname.replace('/editor/', '');
+    }
+    return null;
+  };
+
+  // Navigation helper (backward compatible)
+  const setView = useCallback((newView, sessionId = null) => {
+    if (newView === 'home') {
+      navigate('/');
+    } else if (newView === 'editor' && sessionId) {
+      navigate(`/editor/${sessionId}`);
+    } else if (newView === 'settings') {
+      navigate('/settings');
+    }
+  }, [navigate]);
+
   // Navigation & Session State
-  const [view, setView] = useState('home'); // 'home' | 'editor' | 'settings'
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'post'
-  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const currentSessionId = getSessionIdFromPath();
   const [sessions, setSessions] = useState([]);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -345,9 +376,15 @@ const App = () => {
       createdAt: new Date().toISOString()
     };
     setSessions([newSession, ...sessions]);
-    setCurrentSessionId(newSession.id);
-    setView('editor');
     setActiveTab('chat');
+    navigate(`/editor/${newSession.id}`);
+  };
+
+  // Helper for HomeView compatibility
+  const setCurrentSessionId = (sessionId) => {
+    if (sessionId) {
+      navigate(`/editor/${sessionId}`);
+    }
   };
 
   const deleteSession = (e, id) => {
@@ -1104,7 +1141,7 @@ ${chatSummary}`;
                   transition: 'all 0.2s ease',
                   backgroundColor: 'var(--glass)'
                 }}
-                onClick={() => { setCurrentSessionId(s.id); setView('editor'); setActiveTab(s.status === 'published' ? 'post' : 'chat'); }}
+                onClick={() => { setActiveTab(s.status === 'published' ? 'post' : 'chat'); navigate(`/editor/${s.id}`); }}
                 onTouchStart={(e) => {
                   if (s.status === 'published') {
                     longPressTimer.current = setTimeout(() => {
@@ -1381,7 +1418,7 @@ ${chatSummary}`;
               </div>
             ) : (
               sessions.filter(s => representativeIds.includes(s.id)).map(s => (
-                <div key={s.id} className="session-item glass button-hover" style={{ padding: '0.7rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.6rem', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }} onClick={() => { setCurrentSessionId(s.id); setView('editor'); setActiveTab('post'); }}>
+                <div key={s.id} className="session-item glass button-hover" style={{ padding: '0.7rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.6rem', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }} onClick={() => { setActiveTab('post'); navigate(`/editor/${s.id}`); }}>
                   <div style={{ background: 'rgba(3, 199, 90, 0.1)', width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <BookOpen size={14} color="var(--naver-green)" />
                   </div>
@@ -1480,7 +1517,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.24r2</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.24r3</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
