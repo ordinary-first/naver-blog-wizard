@@ -244,12 +244,31 @@ export const useSupabase = (naverUser) => {
     // 6. Upload File directly to Supabase Storage (iOS Safari compatible - NO base64 conversion)
     const uploadFileDirectly = async (file) => {
         if (!isSupabaseReady || !supabaseUserId) {
-            console.error('Supabase not ready or user not logged in');
+            console.error('Supabase not ready or user not logged in. isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
+
+            // iOS Safari: Try to refresh session if not ready
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                    console.log('Session recovered for upload:', session.user.id);
+                    // Continue with upload using recovered session
+                    const recoveredUserId = session.user.id;
+                    return await performDirectUpload(file, recoveredUserId);
+                }
+            } catch (sessionError) {
+                console.error('Session recovery failed:', sessionError);
+            }
             return null;
         }
 
+        return await performDirectUpload(file, supabaseUserId);
+    };
+
+    // Helper function for direct upload
+    const performDirectUpload = async (file, userId) => {
+
         try {
-            console.log('Direct file upload:', file.name, file.type, file.size, 'bytes');
+            console.log('Direct file upload:', file.name, file.type, file.size, 'bytes', 'userId:', userId);
 
             // Validate file
             if (!file || file.size < 100) {
@@ -271,7 +290,7 @@ export const useSupabase = (naverUser) => {
             }
             // HEIC/HEIF files will be treated as jpg (iOS converts them)
 
-            const uploadFileName = `${supabaseUserId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
+            const uploadFileName = `${userId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
 
             // Upload File directly (most reliable for iOS)
             const { data, error } = await supabase.storage
@@ -282,7 +301,7 @@ export const useSupabase = (naverUser) => {
                 });
 
             if (error) {
-                console.error('Direct upload error:', error);
+                console.error('Direct upload error:', error.message, error.statusCode, error);
                 throw error;
             }
 
@@ -295,7 +314,7 @@ export const useSupabase = (naverUser) => {
             return publicUrl;
 
         } catch (error) {
-            console.error('Direct File Upload Error:', error);
+            console.error('Direct File Upload Error:', error.message || error);
             return null;
         }
     };

@@ -650,13 +650,16 @@ const App = () => {
           handleSendMessage(imageUrl, 'image');
           console.log('Image uploaded successfully:', imageUrl);
         } else {
-          console.error('All upload methods failed');
-          alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
+          console.error('All upload methods failed. isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
+          if (!isSupabaseReady || !supabaseUserId) {
+            alert('로그인 세션이 만료되었습니다. 페이지를 새로고침 해주세요.');
+          } else {
+            alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
+          }
         }
       } catch (err) {
         console.error('Image upload error:', err);
-        alert('사진을 불러오는데 실패했습니다. 다시 시도해주세요.');
-      }
+        alert('사진을 불러오는데 실패했습니다: ' + (err.message || '알 수 없는 오류'));
     }
     e.target.value = '';
   };
