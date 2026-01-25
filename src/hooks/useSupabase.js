@@ -241,7 +241,7 @@ export const useSupabase = (naverUser) => {
         }
     };
 
-    // 6. Upload Image to Supabase Storage
+    // 6. Upload Image to Supabase Storage (iOS compatible)
     const uploadImageToSupabase = async (base64Image) => {
         if (!isSupabaseReady || !supabaseUserId) {
             console.error('Supabase not ready or user not logged in');
@@ -260,14 +260,21 @@ export const useSupabase = (naverUser) => {
                 return null;
             }
 
-            // Extract mime type with better error handling
+            // Extract mime type with better error handling (iOS HEIC support)
             const mimeMatch = base64Image.match(/data:([^;]+);/);
-            if (!mimeMatch) {
-                console.error('Could not extract mime type from base64 string');
-                return null;
+            let mimeType = 'image/jpeg'; // Default fallback
+
+            if (mimeMatch) {
+                mimeType = mimeMatch[1];
+                // Normalize HEIC/HEIF to JPEG (already converted by canvas)
+                if (mimeType.includes('heic') || mimeType.includes('heif')) {
+                    console.log('HEIC detected, treating as JPEG (already converted)');
+                    mimeType = 'image/jpeg';
+                }
+            } else {
+                console.warn('Could not extract mime type, using default: image/jpeg');
             }
-            const mimeType = mimeMatch[1];
-            console.log('Detected mime type:', mimeType);
+            console.log('Using mime type:', mimeType);
 
             // Convert base64 to Blob
             const base64Data = base64Image.split(',')[1];
@@ -276,17 +283,31 @@ export const useSupabase = (naverUser) => {
                 return null;
             }
 
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            // iOS Safari compatible base64 decoding
+            let byteArray;
+            try {
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                byteArray = new Uint8Array(byteNumbers);
+            } catch (decodeError) {
+                console.error('Base64 decode error:', decodeError);
+                return null;
             }
-            const byteArray = new Uint8Array(byteNumbers);
+
             const blob = new Blob([byteArray], { type: mimeType });
             console.log('Blob created, size:', blob.size, 'bytes');
 
-            // Generate unique filename
-            const fileExt = mimeType.split('/')[1];
+            // Validate blob size (prevent empty uploads)
+            if (blob.size < 100) {
+                console.error('Blob too small, likely invalid:', blob.size);
+                return null;
+            }
+
+            // Generate unique filename (always use jpg for consistency)
+            const fileExt = mimeType === 'image/png' ? 'png' : 'jpg';
             const fileName = `${supabaseUserId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
 
             // Upload to Supabase Storage

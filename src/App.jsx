@@ -1,4 +1,4 @@
-// v01.24r4-ios-image-fix
+// v01.25r1-ios-image-fix2
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -479,119 +479,117 @@ const App = () => {
   };
 
   // Compress image heavily optimized for mobile compatibility (especially iOS)
+  // iOS Safari fix: Use FileReader first, then load into Image (more reliable than ObjectURL)
   const compressImage = (file, maxSize = IMAGE_MAX_SIZE, quality = IMAGE_QUALITY) => {
     return new Promise((resolve) => {
       // iOS Safari has a limit of ~16 megapixels for canvas
       const IOS_MAX_PIXELS = 4096 * 4096; // Safe limit for iOS
 
-      const img = new Image();
-      // Required for iOS CORS
-      img.crossOrigin = 'anonymous';
+      // Step 1: Read file as base64 first (iOS Safari compatible)
+      const reader = new FileReader();
 
-      // Create URL safely
-      const objectUrl = URL.createObjectURL(file);
+      reader.onload = (readerEvent) => {
+        const base64Data = readerEvent.target.result;
 
-      img.onload = () => {
-        try {
-          console.log(`Image loaded: ${img.width}x${img.height}, file type: ${file.type}`);
-
-          // Check if image exceeds iOS limit and reduce more aggressively
-          const totalPixels = img.width * img.height;
-          let effectiveMaxSize = maxSize;
-          if (totalPixels > IOS_MAX_PIXELS) {
-            console.log('Large image detected, reducing size for iOS compatibility');
-            effectiveMaxSize = Math.min(maxSize, 800); // More aggressive for large images
-          }
-
-          // If image is small enough, use original (performance optimization)
-          if (img.width <= effectiveMaxSize && img.height <= effectiveMaxSize && file.size < 500 * 1024) {
-            URL.revokeObjectURL(objectUrl);
-            // Convert file to base64 for consistency
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => {
-              console.error('FileReader error for small image');
-              resolve('ERROR_SMALL_IMAGE');
-            };
-            reader.readAsDataURL(file);
-            return;
-          }
-
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d', { willReadFrequently: true }); // Optimization hint
-
-          if (!ctx) {
-            console.error('Failed to get canvas context');
-            // Fallback to FileReader
-            URL.revokeObjectURL(objectUrl);
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-            return;
-          }
-
-          let { width, height } = img;
-
-          // Aggressive resizing for mobile (use effectiveMaxSize for iOS compatibility)
-          if (width > height && width > effectiveMaxSize) {
-            height = (height * effectiveMaxSize) / width;
-            width = effectiveMaxSize;
-          } else if (height > effectiveMaxSize) {
-            width = (width * effectiveMaxSize) / height;
-            height = effectiveMaxSize;
-          }
-
-          // Round dimensions to integers (required for canvas)
-          width = Math.round(width);
-          height = Math.round(height);
-
-          canvas.width = width;
-          canvas.height = height;
-
-          // Clear canvas to prevent black background transparency issues
-          ctx.clearRect(0, 0, width, height);
-
-          // Draw with white background first (for HEIC/transparent images)
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Force JPEG to avoid transparency issues rendering as black
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-          console.log(`Compressed to ${width}x${height}, data length: ${compressedDataUrl.length}`);
-
-          URL.revokeObjectURL(objectUrl);
-          resolve(compressedDataUrl);
-        } catch (err) {
-          console.error("Compression Canvas Error:", err);
-          // Fallback: Just try to read original file as DataURL
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.readAsDataURL(file);
+        if (!base64Data || !base64Data.startsWith('data:')) {
+          console.error('FileReader returned invalid data');
+          resolve('ERROR_LOADING_IMAGE');
+          return;
         }
-      };
 
-      img.onerror = (err) => {
-        console.error("Image Load Error:", err);
-        // Fallback: Read original file as base64 directly
-        URL.revokeObjectURL(objectUrl);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target.result) {
-            resolve(e.target.result);
+        console.log(`FileReader success, data length: ${base64Data.length}, type hint: ${file.type || 'unknown'}`);
+
+        // Step 2: Load base64 into Image object
+        const img = new Image();
+
+        img.onload = () => {
+          try {
+            console.log(`Image loaded: ${img.width}x${img.height}`);
+
+            // Check if image exceeds iOS limit and reduce more aggressively
+            const totalPixels = img.width * img.height;
+            let effectiveMaxSize = maxSize;
+            if (totalPixels > IOS_MAX_PIXELS) {
+              console.log('Large image detected, reducing size for iOS compatibility');
+              effectiveMaxSize = Math.min(maxSize, 800); // More aggressive for large images
+            }
+
+            // If image is small enough, use the base64 we already have
+            if (img.width <= effectiveMaxSize && img.height <= effectiveMaxSize && file.size < 500 * 1024) {
+              console.log('Image small enough, using original base64');
+              resolve(base64Data);
+              return;
+            }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            if (!ctx) {
+              console.error('Failed to get canvas context');
+              resolve(base64Data); // Fallback to original base64
+              return;
+            }
+
+            let { width, height } = img;
+
+            // Aggressive resizing for mobile (use effectiveMaxSize for iOS compatibility)
+            if (width > height && width > effectiveMaxSize) {
+              height = (height * effectiveMaxSize) / width;
+              width = effectiveMaxSize;
+            } else if (height > effectiveMaxSize) {
+              width = (width * effectiveMaxSize) / height;
+              height = effectiveMaxSize;
+            }
+
+            // Round dimensions to integers (required for canvas)
+            width = Math.round(width);
+            height = Math.round(height);
+
+            canvas.width = width;
+            canvas.height = height;
+
+            // Clear canvas to prevent black background transparency issues
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw with white background first (for HEIC/transparent images)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Force JPEG to avoid transparency issues rendering as black
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            console.log(`Compressed to ${width}x${height}, data length: ${compressedDataUrl.length}`);
+
+            resolve(compressedDataUrl);
+          } catch (err) {
+            console.error("Compression Canvas Error:", err);
+            resolve(base64Data); // Fallback to original base64
+          }
+        };
+
+        img.onerror = (err) => {
+          console.error("Image Load Error from base64:", err);
+          // If we can't load the image, the base64 might still be valid for upload
+          // Check if it's a valid data URL
+          if (base64Data.startsWith('data:image/')) {
+            console.log('Image load failed but base64 appears valid, using as-is');
+            resolve(base64Data);
           } else {
-            console.error('FileReader returned empty result');
             resolve('ERROR_LOADING_IMAGE');
           }
         };
-        reader.onerror = () => {
-          console.error('FileReader error in onerror fallback');
-          resolve('ERROR_LOADING_IMAGE');
-        };
-        reader.readAsDataURL(file);
+
+        // Load base64 into image
+        img.src = base64Data;
       };
 
-      img.src = objectUrl;
+      reader.onerror = (err) => {
+        console.error('FileReader error:', err);
+        resolve('ERROR_LOADING_IMAGE');
+      };
+
+      // Start reading the file
+      reader.readAsDataURL(file);
     });
   };
 
