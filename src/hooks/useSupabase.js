@@ -241,7 +241,66 @@ export const useSupabase = (naverUser) => {
         }
     };
 
-    // 6. Upload Image to Supabase Storage (iOS compatible)
+    // 6. Upload File directly to Supabase Storage (iOS Safari compatible - NO base64 conversion)
+    const uploadFileDirectly = async (file) => {
+        if (!isSupabaseReady || !supabaseUserId) {
+            console.error('Supabase not ready or user not logged in');
+            return null;
+        }
+
+        try {
+            console.log('Direct file upload:', file.name, file.type, file.size, 'bytes');
+
+            // Validate file
+            if (!file || file.size < 100) {
+                console.error('Invalid file or too small');
+                return null;
+            }
+
+            // Determine file extension (iOS may not provide correct type for HEIC)
+            let fileExt = 'jpg';
+            const fileType = file.type?.toLowerCase() || '';
+            const fileName = file.name?.toLowerCase() || '';
+
+            if (fileType.includes('png') || fileName.endsWith('.png')) {
+                fileExt = 'png';
+            } else if (fileType.includes('gif') || fileName.endsWith('.gif')) {
+                fileExt = 'gif';
+            } else if (fileType.includes('webp') || fileName.endsWith('.webp')) {
+                fileExt = 'webp';
+            }
+            // HEIC/HEIF files will be treated as jpg (iOS converts them)
+
+            const uploadFileName = `${supabaseUserId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
+
+            // Upload File directly (most reliable for iOS)
+            const { data, error } = await supabase.storage
+                .from('chat-images')
+                .upload(uploadFileName, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (error) {
+                console.error('Direct upload error:', error);
+                throw error;
+            }
+
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('chat-images')
+                .getPublicUrl(uploadFileName);
+
+            console.log('Direct file upload success:', publicUrl);
+            return publicUrl;
+
+        } catch (error) {
+            console.error('Direct File Upload Error:', error);
+            return null;
+        }
+    };
+
+    // 7. Upload Image to Supabase Storage (base64 version - fallback)
     const uploadImageToSupabase = async (base64Image) => {
         if (!isSupabaseReady || !supabaseUserId) {
             console.error('Supabase not ready or user not logged in');
@@ -341,6 +400,7 @@ export const useSupabase = (naverUser) => {
         fetchSessions,
         saveSessionToSupabase,
         deleteSessionFromSupabase,
+        uploadFileDirectly,
         uploadImageToSupabase
     };
 };

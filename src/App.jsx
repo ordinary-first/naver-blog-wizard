@@ -1,4 +1,4 @@
-// v01.25r1-ios-image-fix2
+// v01.25r2-ios-direct-upload
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -87,7 +87,7 @@ const App = () => {
   const [isSelectMode, setIsSelectMode] = useState(false);
 
   // --- Supabase Integration ---
-  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase } = useSupabase(naverUser);
+  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadFileDirectly, uploadImageToSupabase } = useSupabase(naverUser);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Load Sessions from Supabase (SINGLE SOURCE OF TRUTH)
@@ -597,23 +597,34 @@ const App = () => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    // Show loading state implicitly by processing
+    // Detect iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     for (const file of files) {
       try {
-        // Log for debugging
-        console.log(`Processing image: ${file.name} (${file.type}, ${file.size} bytes)`);
+        console.log(`Processing image: ${file.name} (${file.type || 'unknown'}, ${file.size} bytes), iOS: ${isIOS}`);
 
-        // Timeout protection - if compression takes too long, use FileReader fallback
+        let imageUrl = null;
+
+        // iOS: Try direct file upload FIRST (most reliable)
+        if (isIOS) {
+          console.log('iOS detected - attempting direct file upload first');
+          imageUrl = await uploadFileDirectly(file);
+
+          if (imageUrl) {
+            console.log('iOS direct upload success:', imageUrl);
+            handleSendMessage(imageUrl, 'image');
+            continue; // Move to next file
+          }
+          console.warn('iOS direct upload failed, trying compression fallback...');
+        }
+
+        // Non-iOS or iOS fallback: Try compression + base64 upload
         const timeoutPromise = new Promise(resolve =>
           setTimeout(() => {
-            console.warn("Compression timed out, using FileReader fallback");
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => {
-              console.error('FileReader timeout fallback error');
-              resolve('ERROR_TIMEOUT');
-            };
-            reader.readAsDataURL(file);
+            console.warn("Compression timed out");
+            resolve('ERROR_TIMEOUT');
           }, IMAGE_COMPRESSION_TIMEOUT)
         );
 
@@ -622,30 +633,31 @@ const App = () => {
           timeoutPromise
         ]);
 
-        // Only proceed if we got valid image data
-        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' && compressedImage !== 'ERROR_TIMEOUT' && compressedImage.startsWith('data:')) {
-          // Upload to Supabase and get URL
-          const imageUrl = await uploadImageToSupabase(compressedImage);
+        // If compression succeeded, try base64 upload
+        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' &&
+            compressedImage !== 'ERROR_TIMEOUT' && compressedImage !== 'ERROR_SMALL_IMAGE' &&
+            compressedImage.startsWith('data:')) {
+          imageUrl = await uploadImageToSupabase(compressedImage);
+        }
 
-          if (imageUrl) {
-            // Send URL instead of base64
-            handleSendMessage(imageUrl, 'image');
-            console.log('Image uploaded and sent successfully:', imageUrl);
-          } else {
-            console.error('Failed to upload image to Supabase');
-            alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
-          }
+        // Final fallback: Direct file upload (for non-iOS that failed compression)
+        if (!imageUrl) {
+          console.warn('Compression/base64 upload failed, trying direct file upload as final fallback');
+          imageUrl = await uploadFileDirectly(file);
+        }
+
+        if (imageUrl) {
+          handleSendMessage(imageUrl, 'image');
+          console.log('Image uploaded successfully:', imageUrl);
         } else {
-          console.error('Invalid image data:', compressedImage?.substring(0, 50));
-          console.error('Full error value:', compressedImage);
-          alert('이미지를 처리할 수 없습니다. 다른 사진을 선택해주세요.');
+          console.error('All upload methods failed');
+          alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
         }
       } catch (err) {
-        console.error('Image upload final error:', err);
+        console.error('Image upload error:', err);
         alert('사진을 불러오는데 실패했습니다. 다시 시도해주세요.');
       }
     }
-    // Clear input so same file can be selected again
     e.target.value = '';
   };
 
@@ -1550,7 +1562,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.25r1</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.25r2</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
