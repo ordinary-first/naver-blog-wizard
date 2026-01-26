@@ -426,6 +426,41 @@ export const useSupabase = (naverUser) => {
         }
     };
 
+    // 8. Log errors to Supabase for remote debugging (iOS issues)
+    const logErrorToSupabase = async (errorType, errorMessage, errorDetails = {}) => {
+        try {
+            // Get session even if hook state is stale
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id || supabaseUserId;
+
+            if (!userId) {
+                console.log('[ErrorLog] No user ID, skipping log');
+                return;
+            }
+
+            const { error } = await supabase
+                .from('error_logs')
+                .insert({
+                    user_id: userId,
+                    error_type: errorType,
+                    error_message: errorMessage,
+                    error_details: {
+                        ...errorDetails,
+                        timestamp: new Date().toISOString()
+                    },
+                    user_agent: navigator.userAgent
+                });
+
+            if (error) {
+                console.error('[ErrorLog] Failed to save:', error);
+            } else {
+                console.log('[ErrorLog] Saved:', errorType);
+            }
+        } catch (e) {
+            console.error('[ErrorLog] Exception:', e);
+        }
+    };
+
     return {
         isSupabaseReady,
         supabaseUserId,
@@ -433,6 +468,7 @@ export const useSupabase = (naverUser) => {
         saveSessionToSupabase,
         deleteSessionFromSupabase,
         uploadFileDirectly,
-        uploadImageToSupabase
+        uploadImageToSupabase,
+        logErrorToSupabase
     };
 };

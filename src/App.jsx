@@ -1,4 +1,4 @@
-// v01.27r1-ios-upload-fix
+// v01.27r2-ios-error-logging
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -87,7 +87,7 @@ const App = () => {
   const [isSelectMode, setIsSelectMode] = useState(false);
 
   // --- Supabase Integration ---
-  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase, uploadFileDirectly } = useSupabase(naverUser);
+  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase, uploadFileDirectly, logErrorToSupabase } = useSupabase(naverUser);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Load Sessions from Supabase (SINGLE SOURCE OF TRUTH)
@@ -661,10 +661,21 @@ const App = () => {
           }
         }
 
-        // Both strategies failed
+        // Both strategies failed - log to Supabase for remote debugging
         console.error('[Upload] All strategies failed');
-        console.error('[Upload] File info:', { name: file.name, type: file.type, size: file.size });
-        console.error('[Upload] isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
+        const errorDetails = {
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          isSupabaseReady,
+          supabaseUserId: supabaseUserId ? 'exists' : 'null',
+          isIOS,
+          compressedResult: compressedImage ? compressedImage.substring(0, 100) : 'null'
+        };
+        console.error('[Upload] Error details:', errorDetails);
+
+        // Save error to Supabase for remote debugging
+        await logErrorToSupabase('IMAGE_UPLOAD_FAILED', 'Both direct and compressed upload strategies failed', errorDetails);
 
         if (isIOS) {
           alert('iOS에서 이미지 업로드에 실패했습니다.\n\n해결 방법:\n1. Safari 설정 > 개인정보 보호에서 "크로스 사이트 추적 방지" 끄기\n2. 앱을 다시 로그인\n3. 다른 이미지로 시도');
@@ -673,6 +684,12 @@ const App = () => {
         }
       } catch (err) {
         console.error('[Upload] Exception:', err.message, err);
+        await logErrorToSupabase('IMAGE_UPLOAD_EXCEPTION', err.message, {
+          stack: err.stack,
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size
+        });
         alert('사진을 불러오는데 실패했습니다. 다시 시도해주세요.');
       }
     }
@@ -1580,7 +1597,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.27r1</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.27r2</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
