@@ -107,11 +107,13 @@ const HomeView = ({
 
     const handleLongPressStart = (sessionId, e) => {
         e.preventDefault();
+        const touch = e.touches?.[0] || e;
+        const x = touch.clientX || touch.pageX;
+        const y = touch.clientY || touch.pageY;
+
         longPressTimer.current = setTimeout(() => {
-            // Enter select mode on long press
-            setIsSelectMode(true);
-            setSelectedIds([sessionId]);
-            setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
+            // Show context menu on long press
+            setContextMenu({ visible: true, sessionId, x, y });
         }, 400);
     };
 
