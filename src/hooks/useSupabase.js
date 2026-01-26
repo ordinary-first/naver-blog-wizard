@@ -243,21 +243,24 @@ export const useSupabase = (naverUser) => {
 
     // 6. Upload File directly to Supabase Storage (iOS Safari compatible - NO base64 conversion)
     const uploadFileDirectly = async (file) => {
+        console.log('[DirectUpload] Start - isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
+
         if (!isSupabaseReady || !supabaseUserId) {
-            console.error('Supabase not ready or user not logged in. isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
+            console.log('[DirectUpload] Session not ready, attempting recovery...');
 
             // iOS Safari: Try to refresh session if not ready
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                console.log('[DirectUpload] Session check result:', session ? 'found' : 'none', sessionError || '');
+
                 if (session?.user) {
-                    console.log('Session recovered for upload:', session.user.id);
-                    // Continue with upload using recovered session
-                    const recoveredUserId = session.user.id;
-                    return await performDirectUpload(file, recoveredUserId);
+                    console.log('[DirectUpload] Session recovered:', session.user.id);
+                    return await performDirectUpload(file, session.user.id);
                 }
             } catch (sessionError) {
-                console.error('Session recovery failed:', sessionError);
+                console.error('[DirectUpload] Session recovery exception:', sessionError);
             }
+            console.error('[DirectUpload] Failed - no valid session');
             return null;
         }
 
@@ -266,33 +269,39 @@ export const useSupabase = (naverUser) => {
 
     // Helper function for direct upload
     const performDirectUpload = async (file, userId) => {
-
         try {
-            console.log('Direct file upload:', file.name, file.type, file.size, 'bytes', 'userId:', userId);
+            console.log('[DirectUpload] performDirectUpload start');
+            console.log('[DirectUpload] File:', file.name, 'Type:', file.type, 'Size:', file.size, 'bytes');
+            console.log('[DirectUpload] UserId:', userId);
 
             // Validate file
             if (!file || file.size < 100) {
-                console.error('Invalid file or too small');
+                console.error('[DirectUpload] Invalid file or too small');
                 return null;
             }
 
             // Determine file extension (iOS may not provide correct type for HEIC)
             let fileExt = 'jpg';
             const fileType = file.type?.toLowerCase() || '';
-            const fileName = file.name?.toLowerCase() || '';
+            const originalFileName = file.name?.toLowerCase() || '';
 
-            if (fileType.includes('png') || fileName.endsWith('.png')) {
+            if (fileType.includes('png') || originalFileName.endsWith('.png')) {
                 fileExt = 'png';
-            } else if (fileType.includes('gif') || fileName.endsWith('.gif')) {
+            } else if (fileType.includes('gif') || originalFileName.endsWith('.gif')) {
                 fileExt = 'gif';
-            } else if (fileType.includes('webp') || fileName.endsWith('.webp')) {
+            } else if (fileType.includes('webp') || originalFileName.endsWith('.webp')) {
                 fileExt = 'webp';
+            } else if (fileType.includes('heic') || fileType.includes('heif') ||
+                       originalFileName.endsWith('.heic') || originalFileName.endsWith('.heif')) {
+                console.log('[DirectUpload] HEIC/HEIF detected, using jpg extension');
+                fileExt = 'jpg';
             }
-            // HEIC/HEIF files will be treated as jpg (iOS converts them)
 
             const uploadFileName = `${userId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
+            console.log('[DirectUpload] Target path:', uploadFileName);
 
             // Upload File directly (most reliable for iOS)
+            console.log('[DirectUpload] Calling supabase.storage.upload...');
             const { data, error } = await supabase.storage
                 .from('chat-images')
                 .upload(uploadFileName, file, {
@@ -301,20 +310,24 @@ export const useSupabase = (naverUser) => {
                 });
 
             if (error) {
-                console.error('Direct upload error:', error.message, error.statusCode, error);
+                console.error('[DirectUpload] Supabase error:', error.message);
+                console.error('[DirectUpload] Error details:', JSON.stringify(error));
                 throw error;
             }
+
+            console.log('[DirectUpload] Upload response:', data);
 
             // Get public URL
             const { data: { publicUrl } } = supabase.storage
                 .from('chat-images')
                 .getPublicUrl(uploadFileName);
 
-            console.log('Direct file upload success:', publicUrl);
+            console.log('[DirectUpload] SUCCESS - URL:', publicUrl);
             return publicUrl;
 
         } catch (error) {
-            console.error('Direct File Upload Error:', error.message || error);
+            console.error('[DirectUpload] Exception:', error.message || error);
+            console.error('[DirectUpload] Stack:', error.stack);
             return null;
         }
     };

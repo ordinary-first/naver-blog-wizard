@@ -20,7 +20,12 @@
       "Bash(start https://naver-blog-wizard.vercel.app/)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: add Supabase storage bucket SQL and update Claude settings\n\n- Add create-storage-bucket.sql with policies for chat-images bucket\n- Update Claude settings with recent command history\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(browser-use:*)",
+      "Bash(agent-browser --session test2 snapshot:*)",
+      "Bash(agent-browser:*)"
     ]
   }
 }

@@ -1,4 +1,4 @@
-// v01.26r1-delete-message
+// v01.27r1-ios-upload-fix
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -87,7 +87,7 @@ const App = () => {
   const [isSelectMode, setIsSelectMode] = useState(false);
 
   // --- Supabase Integration ---
-  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase } = useSupabase(naverUser);
+  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase, uploadFileDirectly } = useSupabase(naverUser);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Load Sessions from Supabase (SINGLE SOURCE OF TRUTH)
@@ -607,23 +607,37 @@ const App = () => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    // Show loading state implicitly by processing
+    // iOS detection for better error handling
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    console.log('[iOS Debug] Device:', isIOS ? 'iOS' : 'Other', 'UserAgent:', navigator.userAgent);
+
     for (const file of files) {
       try {
-        // Log for debugging
-        console.log(`Processing image: ${file.name} (${file.type}, ${file.size} bytes)`);
+        console.log(`[Upload] Start: ${file.name} (${file.type}, ${file.size} bytes)`);
+        console.log('[Upload] Supabase ready:', isSupabaseReady, 'userId:', supabaseUserId);
 
-        // Timeout protection - if compression takes too long, use FileReader fallback
+        let imageUrl = null;
+
+        // Strategy 1: Try direct file upload first (most reliable for iOS)
+        // Skip compression entirely - Supabase handles it well
+        console.log('[Upload] Trying direct upload (Strategy 1)...');
+        imageUrl = await uploadFileDirectly(file);
+
+        if (imageUrl) {
+          console.log('[Upload] Direct upload SUCCESS:', imageUrl);
+          handleSendMessage(imageUrl, 'image');
+          continue; // Success, move to next file
+        }
+
+        // Strategy 2: If direct upload failed, try compressed base64 approach
+        console.log('[Upload] Direct upload failed, trying compressed upload (Strategy 2)...');
+
         const timeoutPromise = new Promise(resolve =>
           setTimeout(() => {
-            console.warn("Compression timed out, using FileReader fallback");
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => {
-              console.error('FileReader timeout fallback error');
-              resolve('ERROR_TIMEOUT');
-            };
-            reader.readAsDataURL(file);
+            console.warn("[Upload] Compression timeout");
+            resolve('ERROR_TIMEOUT');
           }, IMAGE_COMPRESSION_TIMEOUT)
         );
 
@@ -632,30 +646,36 @@ const App = () => {
           timeoutPromise
         ]);
 
-        // Only proceed if we got valid image data
-        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' && compressedImage !== 'ERROR_TIMEOUT' && compressedImage.startsWith('data:')) {
-          // Upload to Supabase and get URL
-          const imageUrl = await uploadImageToSupabase(compressedImage);
+        console.log('[Upload] Compression result:', compressedImage ?
+          (compressedImage.startsWith('data:') ? `OK (${compressedImage.length} chars)` : compressedImage)
+          : 'null');
+
+        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' &&
+            compressedImage !== 'ERROR_TIMEOUT' && compressedImage.startsWith('data:')) {
+          imageUrl = await uploadImageToSupabase(compressedImage);
 
           if (imageUrl) {
-            // Send URL instead of base64
+            console.log('[Upload] Compressed upload SUCCESS:', imageUrl);
             handleSendMessage(imageUrl, 'image');
-            console.log('Image uploaded and sent successfully:', imageUrl);
-          } else {
-            console.error('Failed to upload image to Supabase');
-            alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
+            continue;
           }
+        }
+
+        // Both strategies failed
+        console.error('[Upload] All strategies failed');
+        console.error('[Upload] File info:', { name: file.name, type: file.type, size: file.size });
+        console.error('[Upload] isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
+
+        if (isIOS) {
+          alert('iOS에서 이미지 업로드에 실패했습니다.\n\n해결 방법:\n1. Safari 설정 > 개인정보 보호에서 "크로스 사이트 추적 방지" 끄기\n2. 앱을 다시 로그인\n3. 다른 이미지로 시도');
         } else {
-          console.error('Invalid image data:', compressedImage?.substring(0, 50));
-          console.error('Full error value:', compressedImage);
-          alert('이미지를 처리할 수 없습니다. 다른 사진을 선택해주세요.');
+          alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
         }
       } catch (err) {
-        console.error('Image upload final error:', err);
+        console.error('[Upload] Exception:', err.message, err);
         alert('사진을 불러오는데 실패했습니다. 다시 시도해주세요.');
       }
     }
-    // Clear input so same file can be selected again
     e.target.value = '';
   };
 
@@ -1560,7 +1580,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.26r1</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.27r1</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
