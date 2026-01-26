@@ -739,6 +739,33 @@ const HomeView = ({
                             <Trash2 size={15} />
                             삭제
                         </button>
+                        <button
+                            onClick={() => {
+                                setIsSelectMode(true);
+                                setSelectedIds([contextMenu.sessionId]);
+                                setContextMenu({ visible: false, sessionId: null, x: 0, y: 0 });
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '0.65rem 0.7rem',
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                borderRadius: '6px',
+                                fontSize: '0.85rem',
+                                fontWeight: '500',
+                                transition: 'background 0.15s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                            <CheckCircle size={15} />
+                            여러 개 선택
+                        </button>
                     </div>
                 </>
             )}
