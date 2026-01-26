@@ -1,4 +1,4 @@
-// v01.25r2-ios-direct-upload
+// v01.26r1-delete-message
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -87,7 +87,7 @@ const App = () => {
   const [isSelectMode, setIsSelectMode] = useState(false);
 
   // --- Supabase Integration ---
-  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadFileDirectly, uploadImageToSupabase } = useSupabase(naverUser);
+  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase } = useSupabase(naverUser);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Load Sessions from Supabase (SINGLE SOURCE OF TRUTH)
@@ -394,6 +394,14 @@ const App = () => {
     if (currentSessionId === id) setView('home');
   };
 
+  // Delete a single message from chat (doesn't affect post)
+  const deleteMessage = (messageId) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id !== currentSessionId) return s;
+      return { ...s, messages: s.messages.filter(m => m.id !== messageId) };
+    }));
+  };
+
   // Auto-generate title from first user message
   const generateSessionTitle = (text, type = 'text') => {
     if (type === 'image') {
@@ -479,117 +487,119 @@ const App = () => {
   };
 
   // Compress image heavily optimized for mobile compatibility (especially iOS)
-  // iOS Safari fix: Use FileReader first, then load into Image (more reliable than ObjectURL)
   const compressImage = (file, maxSize = IMAGE_MAX_SIZE, quality = IMAGE_QUALITY) => {
     return new Promise((resolve) => {
       // iOS Safari has a limit of ~16 megapixels for canvas
       const IOS_MAX_PIXELS = 4096 * 4096; // Safe limit for iOS
 
-      // Step 1: Read file as base64 first (iOS Safari compatible)
-      const reader = new FileReader();
+      const img = new Image();
+      // Required for iOS CORS
+      img.crossOrigin = 'anonymous';
 
-      reader.onload = (readerEvent) => {
-        const base64Data = readerEvent.target.result;
+      // Create URL safely
+      const objectUrl = URL.createObjectURL(file);
 
-        if (!base64Data || !base64Data.startsWith('data:')) {
-          console.error('FileReader returned invalid data');
-          resolve('ERROR_LOADING_IMAGE');
-          return;
-        }
+      img.onload = () => {
+        try {
+          console.log(`Image loaded: ${img.width}x${img.height}, file type: ${file.type}`);
 
-        console.log(`FileReader success, data length: ${base64Data.length}, type hint: ${file.type || 'unknown'}`);
-
-        // Step 2: Load base64 into Image object
-        const img = new Image();
-
-        img.onload = () => {
-          try {
-            console.log(`Image loaded: ${img.width}x${img.height}`);
-
-            // Check if image exceeds iOS limit and reduce more aggressively
-            const totalPixels = img.width * img.height;
-            let effectiveMaxSize = maxSize;
-            if (totalPixels > IOS_MAX_PIXELS) {
-              console.log('Large image detected, reducing size for iOS compatibility');
-              effectiveMaxSize = Math.min(maxSize, 800); // More aggressive for large images
-            }
-
-            // If image is small enough, use the base64 we already have
-            if (img.width <= effectiveMaxSize && img.height <= effectiveMaxSize && file.size < 500 * 1024) {
-              console.log('Image small enough, using original base64');
-              resolve(base64Data);
-              return;
-            }
-
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-            if (!ctx) {
-              console.error('Failed to get canvas context');
-              resolve(base64Data); // Fallback to original base64
-              return;
-            }
-
-            let { width, height } = img;
-
-            // Aggressive resizing for mobile (use effectiveMaxSize for iOS compatibility)
-            if (width > height && width > effectiveMaxSize) {
-              height = (height * effectiveMaxSize) / width;
-              width = effectiveMaxSize;
-            } else if (height > effectiveMaxSize) {
-              width = (width * effectiveMaxSize) / height;
-              height = effectiveMaxSize;
-            }
-
-            // Round dimensions to integers (required for canvas)
-            width = Math.round(width);
-            height = Math.round(height);
-
-            canvas.width = width;
-            canvas.height = height;
-
-            // Clear canvas to prevent black background transparency issues
-            ctx.clearRect(0, 0, width, height);
-
-            // Draw with white background first (for HEIC/transparent images)
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Force JPEG to avoid transparency issues rendering as black
-            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-            console.log(`Compressed to ${width}x${height}, data length: ${compressedDataUrl.length}`);
-
-            resolve(compressedDataUrl);
-          } catch (err) {
-            console.error("Compression Canvas Error:", err);
-            resolve(base64Data); // Fallback to original base64
+          // Check if image exceeds iOS limit and reduce more aggressively
+          const totalPixels = img.width * img.height;
+          let effectiveMaxSize = maxSize;
+          if (totalPixels > IOS_MAX_PIXELS) {
+            console.log('Large image detected, reducing size for iOS compatibility');
+            effectiveMaxSize = Math.min(maxSize, 800); // More aggressive for large images
           }
-        };
 
-        img.onerror = (err) => {
-          console.error("Image Load Error from base64:", err);
-          // If we can't load the image, the base64 might still be valid for upload
-          // Check if it's a valid data URL
-          if (base64Data.startsWith('data:image/')) {
-            console.log('Image load failed but base64 appears valid, using as-is');
-            resolve(base64Data);
+          // If image is small enough, use original (performance optimization)
+          if (img.width <= effectiveMaxSize && img.height <= effectiveMaxSize && file.size < 500 * 1024) {
+            URL.revokeObjectURL(objectUrl);
+            // Convert file to base64 for consistency
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => {
+              console.error('FileReader error for small image');
+              resolve('ERROR_SMALL_IMAGE');
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true }); // Optimization hint
+
+          if (!ctx) {
+            console.error('Failed to get canvas context');
+            // Fallback to FileReader
+            URL.revokeObjectURL(objectUrl);
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+            return;
+          }
+
+          let { width, height } = img;
+
+          // Aggressive resizing for mobile (use effectiveMaxSize for iOS compatibility)
+          if (width > height && width > effectiveMaxSize) {
+            height = (height * effectiveMaxSize) / width;
+            width = effectiveMaxSize;
+          } else if (height > effectiveMaxSize) {
+            width = (width * effectiveMaxSize) / height;
+            height = effectiveMaxSize;
+          }
+
+          // Round dimensions to integers (required for canvas)
+          width = Math.round(width);
+          height = Math.round(height);
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Clear canvas to prevent black background transparency issues
+          ctx.clearRect(0, 0, width, height);
+
+          // Draw with white background first (for HEIC/transparent images)
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Force JPEG to avoid transparency issues rendering as black
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          console.log(`Compressed to ${width}x${height}, data length: ${compressedDataUrl.length}`);
+
+          URL.revokeObjectURL(objectUrl);
+          resolve(compressedDataUrl);
+        } catch (err) {
+          console.error("Compression Canvas Error:", err);
+          // Fallback: Just try to read original file as DataURL
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(file);
+        }
+      };
+
+      img.onerror = (err) => {
+        console.error("Image Load Error:", err);
+        // Fallback: Read original file as base64 directly
+        URL.revokeObjectURL(objectUrl);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target.result) {
+            resolve(e.target.result);
           } else {
+            console.error('FileReader returned empty result');
             resolve('ERROR_LOADING_IMAGE');
           }
         };
-
-        // Load base64 into image
-        img.src = base64Data;
+        reader.onerror = () => {
+          console.error('FileReader error in onerror fallback');
+          resolve('ERROR_LOADING_IMAGE');
+        };
+        reader.readAsDataURL(file);
       };
 
-      reader.onerror = (err) => {
-        console.error('FileReader error:', err);
-        resolve('ERROR_LOADING_IMAGE');
-      };
-
-      // Start reading the file
-      reader.readAsDataURL(file);
+      img.src = objectUrl;
     });
   };
 
@@ -597,34 +607,23 @@ const App = () => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    // Detect iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
+    // Show loading state implicitly by processing
     for (const file of files) {
       try {
-        console.log(`Processing image: ${file.name} (${file.type || 'unknown'}, ${file.size} bytes), iOS: ${isIOS}`);
+        // Log for debugging
+        console.log(`Processing image: ${file.name} (${file.type}, ${file.size} bytes)`);
 
-        let imageUrl = null;
-
-        // iOS: Try direct file upload FIRST (most reliable)
-        if (isIOS) {
-          console.log('iOS detected - attempting direct file upload first');
-          imageUrl = await uploadFileDirectly(file);
-
-          if (imageUrl) {
-            console.log('iOS direct upload success:', imageUrl);
-            handleSendMessage(imageUrl, 'image');
-            continue; // Move to next file
-          }
-          console.warn('iOS direct upload failed, trying compression fallback...');
-        }
-
-        // Non-iOS or iOS fallback: Try compression + base64 upload
+        // Timeout protection - if compression takes too long, use FileReader fallback
         const timeoutPromise = new Promise(resolve =>
           setTimeout(() => {
-            console.warn("Compression timed out");
-            resolve('ERROR_TIMEOUT');
+            console.warn("Compression timed out, using FileReader fallback");
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => {
+              console.error('FileReader timeout fallback error');
+              resolve('ERROR_TIMEOUT');
+            };
+            reader.readAsDataURL(file);
           }, IMAGE_COMPRESSION_TIMEOUT)
         );
 
@@ -633,34 +632,30 @@ const App = () => {
           timeoutPromise
         ]);
 
-        // If compression succeeded, try base64 upload
-        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' &&
-            compressedImage !== 'ERROR_TIMEOUT' && compressedImage !== 'ERROR_SMALL_IMAGE' &&
-            compressedImage.startsWith('data:')) {
-          imageUrl = await uploadImageToSupabase(compressedImage);
-        }
+        // Only proceed if we got valid image data
+        if (compressedImage && compressedImage !== 'ERROR_LOADING_IMAGE' && compressedImage !== 'ERROR_TIMEOUT' && compressedImage.startsWith('data:')) {
+          // Upload to Supabase and get URL
+          const imageUrl = await uploadImageToSupabase(compressedImage);
 
-        // Final fallback: Direct file upload (for non-iOS that failed compression)
-        if (!imageUrl) {
-          console.warn('Compression/base64 upload failed, trying direct file upload as final fallback');
-          imageUrl = await uploadFileDirectly(file);
-        }
-
-        if (imageUrl) {
-          handleSendMessage(imageUrl, 'image');
-          console.log('Image uploaded successfully:', imageUrl);
-        } else {
-          console.error('All upload methods failed. isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
-          if (!isSupabaseReady || !supabaseUserId) {
-            alert('로그인 세션이 만료되었습니다. 페이지를 새로고침 해주세요.');
+          if (imageUrl) {
+            // Send URL instead of base64
+            handleSendMessage(imageUrl, 'image');
+            console.log('Image uploaded and sent successfully:', imageUrl);
           } else {
+            console.error('Failed to upload image to Supabase');
             alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
           }
+        } else {
+          console.error('Invalid image data:', compressedImage?.substring(0, 50));
+          console.error('Full error value:', compressedImage);
+          alert('이미지를 처리할 수 없습니다. 다른 사진을 선택해주세요.');
         }
       } catch (err) {
-        console.error('Image upload error:', err);
-        alert('사진을 불러오는데 실패했습니다: ' + (err.message || '알 수 없는 오류'));
+        console.error('Image upload final error:', err);
+        alert('사진을 불러오는데 실패했습니다. 다시 시도해주세요.');
+      }
     }
+    // Clear input so same file can be selected again
     e.target.value = '';
   };
 
@@ -1565,7 +1560,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.25r2</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.26r1</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -1677,15 +1672,24 @@ ${chatSummary}`;
                       if (!m.content) return null;
 
                       return (
-                        <div key={m.id} className={`message ${m.sender} reveal`}>
+                        <div key={m.id} className={`message ${m.sender} reveal`} style={{ position: 'relative', paddingLeft: m.sender === 'user' ? '30px' : '0' }}>
+                          {m.sender === 'user' && (
+                            <button
+                              onClick={() => deleteMessage(m.id)}
+                              className="msg-del-btn"
+                              style={{ position: 'absolute', top: '4px', left: '0', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.4 }}
+                            >
+                              <X size={12} color="var(--text-dim)" />
+                            </button>
+                          )}
                           {isImage ? (
                             <div className="message-image">
                               <img
                                 src={m.content}
                                 alt="upload"
-                                onLoad={(e) => console.log('Image loaded successfully:', m.id)}
+                                onLoad={() => console.log('Image loaded:', m.id)}
                                 onError={(e) => {
-                                  console.error('Image load failed:', m.id, m.content?.substring(0, 100));
+                                  console.error('Image load failed:', m.id);
                                   e.target.style.opacity = '0.3';
                                   e.target.alt = '이미지를 불러올 수 없습니다';
                                 }}
