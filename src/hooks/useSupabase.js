@@ -160,7 +160,8 @@ export const useSupabase = (naverUser) => {
         };
 
         autoLogin();
-    }, [naverUser, isSupabaseReady, supabaseUserId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [naverUser, isSupabaseReady]);
 
     // 3. Data Fetching
     const fetchSessions = async () => {
