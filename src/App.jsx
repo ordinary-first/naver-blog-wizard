@@ -1,4 +1,4 @@
-// v01.27r4-context-menu-select-mode
+// v01.27r10
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -12,6 +12,7 @@ import {
 import './index.css';
 import HomeView from './HomeView';
 import { useSupabase } from './hooks/useSupabase';
+import { supabase } from './supabaseClient';
 
 // Constants
 const GEMINI_MODEL = "gemini-2.0-flash";
@@ -192,7 +193,7 @@ const App = () => {
 
   // 2. Sync to Supabase (Debounced)
   useEffect(() => {
-    if (!isSupabaseReady || !supabaseUserId || !currentSessionId || !isDataLoaded) return;
+    if (!isSupabaseReady || !supabaseUserId || !currentSessionId) return;
 
     const currentSession = sessions.find(s => s.id === currentSessionId);
     if (currentSession) {
@@ -206,7 +207,7 @@ const App = () => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [sessions, currentSessionId, isSupabaseReady, supabaseUserId, isDataLoaded]);
+  }, [sessions, currentSessionId, isSupabaseReady, supabaseUserId]);
   // ----------------------------
   const longPressTimer = useRef(null);
 
@@ -312,6 +313,7 @@ const App = () => {
 
         if (profileData.response) {
           const user = {
+            id: profileData.response.id, // 네이버 고유 ID (필수!)
             nickname: profileData.response.nickname,
             profileImage: profileData.response.profile_image,
             blogTitle: `${profileData.response.nickname}님의 블로그`
@@ -425,9 +427,31 @@ const App = () => {
   };
 
   const handleNaverLogout = () => {
+    // 1. React state 초기화 - 다른 계정 로그인 시 이전 데이터 표시 방지
     setNaverUser(null);
+    setSessions([]);
+    setCurrentSessionId(null);
+    setRepresentativeIds([]);
+    setUserStylePrompt('');
+    setIsDataLoaded(false);
+    setApiKeys({ gemini: import.meta.env.VITE_GEMINI_API_KEY || '' }); // API 키 초기화
+
+    // 2. localStorage 완전 정리
     localStorage.removeItem('naver_user');
     localStorage.removeItem('naver_auth_state');
+    localStorage.removeItem('wizard_representative_ids');
+    localStorage.removeItem('wizard_user_style');
+    localStorage.removeItem('wizard_sessions'); // 레거시 데이터도 정리
+    localStorage.removeItem('wizard_settings'); // API 키 설정 제거
+    localStorage.removeItem('wizard_theme'); // 테마 설정도 초기화
+
+    // 3. Supabase 로그아웃
+    if (isSupabaseReady) {
+      supabase.auth.signOut();
+    }
+
+    // 4. 홈으로 리디렉션
+    navigate('/');
   };
 
   // --- Chat Logic ---

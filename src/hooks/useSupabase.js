@@ -40,12 +40,58 @@ export const useSupabase = (naverUser) => {
     // 2. Auto Login / Signup based on Naver ID (when naverUser is available)
     useEffect(() => {
         const naverId = naverUser?.id || naverUser?.nickname;
-        if (!naverId) return;
-        if (isSupabaseReady) return; // Already logged in
+        console.log('🔑 [AUTH DEBUG] ==================== START ====================');
+        console.log('🔑 [AUTH DEBUG] naverUser:', JSON.stringify(naverUser, null, 2));
+        console.log('🔑 [AUTH DEBUG] naverId determined:', naverId);
+        console.log('🔑 [AUTH DEBUG] isSupabaseReady:', isSupabaseReady);
+        console.log('🔑 [AUTH DEBUG] supabaseUserId:', supabaseUserId);
+
+        if (!naverId) {
+            console.log('🔑 [AUTH DEBUG] No naverId, exiting');
+            return;
+        }
 
         const autoLogin = async () => {
-            const email = `talklog.${naverId}@gmail.com`;
-            const password = `talklog_secure_${naverId}`;
+            // First, check if current Supabase session matches the Naver user
+            if (isSupabaseReady && supabaseUserId) {
+                try {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('naver_id')
+                        .eq('id', supabaseUserId)
+                        .single();
+
+                    if (profile && profile.naver_id === naverId) {
+                        console.log('🔑 [AUTH DEBUG] Session matches current Naver user, exiting');
+                        return;
+                    } else {
+                        console.log('🔑 [AUTH DEBUG] Session mismatch! Profile naverId:', profile?.naver_id, 'vs current:', naverId);
+                        console.log('🔑 [AUTH DEBUG] Signing out stale session...');
+                        await supabase.auth.signOut();
+                        setIsSupabaseReady(false);
+                        setSupabaseUserId(null);
+                        // Continue to login with new user
+                    }
+                } catch (error) {
+                    console.error('🔑 [AUTH DEBUG] Session check error:', error);
+                }
+            }
+
+            // Create email-safe identifier by hashing the naverId
+            // This ensures consistent, valid email format regardless of naverId content
+            const encoder = new TextEncoder();
+            const data = encoder.encode(naverId);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            const emailSafeId = hashHex.substring(0, 32); // Use first 32 chars of hash
+
+            const email = `talklog.${emailSafeId}@gmail.com`;
+            const password = `talklog_secure_${emailSafeId}`; // Use same hash for consistency
+
+            console.log('🔑 [AUTH DEBUG] Email-safe ID generated:', emailSafeId);
+            console.log('🔑 [AUTH DEBUG] Original naverId:', naverId);
+            console.log('🔑 [AUTH DEBUG] Attempting login with email:', email);
 
             try {
                 // Try sign in
@@ -56,7 +102,8 @@ export const useSupabase = (naverUser) => {
 
                 if (signInError) {
                     // If fail, try sign up
-                    console.log('Sign in failed, trying sign up...');
+                    console.log('❌ [AUTH DEBUG] Sign in FAILED:', signInError.message);
+                    console.log('❌ [AUTH DEBUG] Attempting sign up...');
                     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
                         email,
                         password,
@@ -73,6 +120,7 @@ export const useSupabase = (naverUser) => {
                     if (signUpError) throw signUpError;
 
                     const userId = signUpData.user?.id;
+                    console.log('✅ [AUTH DEBUG] Sign up SUCCESS! New userId:', userId);
                     if (userId) {
                         setSupabaseUserId(userId);
                         // Sync Profile Data
@@ -87,6 +135,7 @@ export const useSupabase = (naverUser) => {
                     }
                 } else {
                     const userId = signInData.user?.id;
+                    console.log('✅ [AUTH DEBUG] Sign in SUCCESS! Existing userId:', userId);
                     if (userId) {
                         setSupabaseUserId(userId);
                         // Sync Profile Data on login too
@@ -102,20 +151,30 @@ export const useSupabase = (naverUser) => {
                 }
 
                 setIsSupabaseReady(true);
-                console.log('Supabase Connected!');
+                console.log('✅ [AUTH DEBUG] Supabase Connected! Ready to fetch data.');
+                console.log('🔑 [AUTH DEBUG] ==================== END ====================');
             } catch (error) {
-                console.error('Supabase Auth Error:', error);
+                console.error('❌ [AUTH DEBUG] Supabase Auth Error:', error);
+                console.log('🔑 [AUTH DEBUG] ==================== END (ERROR) ====================');
             }
         };
 
         autoLogin();
-    }, [naverUser, isSupabaseReady]);
+    }, [naverUser, isSupabaseReady, supabaseUserId]);
 
     // 3. Data Fetching
     const fetchSessions = async () => {
-        if (!isSupabaseReady || !supabaseUserId) return [];
+        console.log('📥 [FETCH DEBUG] ==================== FETCH SESSIONS ====================');
+        console.log('📥 [FETCH DEBUG] isSupabaseReady:', isSupabaseReady);
+        console.log('📥 [FETCH DEBUG] supabaseUserId:', supabaseUserId);
+
+        if (!isSupabaseReady || !supabaseUserId) {
+            console.log('📥 [FETCH DEBUG] Not ready or no userId, returning empty array');
+            return [];
+        }
 
         try {
+            console.log('📥 [FETCH DEBUG] Querying Supabase with user_id:', supabaseUserId);
             const { data: sessions, error } = await supabase
                 .from('chat_sessions')
                 .select(`
@@ -125,7 +184,15 @@ export const useSupabase = (naverUser) => {
                 .eq('user_id', supabaseUserId)
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (error) {
+                console.error('📥 [FETCH DEBUG] Query ERROR:', error);
+                throw error;
+            }
+
+            console.log('📥 [FETCH DEBUG] Query SUCCESS! Found', sessions?.length || 0, 'sessions');
+            if (sessions && sessions.length > 0) {
+                console.log('📥 [FETCH DEBUG] First session:', sessions[0].title);
+            }
 
             // Transform DB structure to match App state structure
             const transformed = sessions.map(s => ({
@@ -157,9 +224,20 @@ export const useSupabase = (naverUser) => {
 
     // 4. Save Session (Upsert)
     const saveSessionToSupabase = async (session) => {
-        if (!isSupabaseReady || !supabaseUserId) return;
+        console.log('💾 [SAVE DEBUG] ==================== SAVE SESSION ====================');
+        console.log('💾 [SAVE DEBUG] isSupabaseReady:', isSupabaseReady);
+        console.log('💾 [SAVE DEBUG] supabaseUserId:', supabaseUserId);
+        console.log('💾 [SAVE DEBUG] session.id:', session.id);
+        console.log('💾 [SAVE DEBUG] session.title:', session.title);
+        console.log('💾 [SAVE DEBUG] session.messages count:', session.messages?.length || 0);
+
+        if (!isSupabaseReady || !supabaseUserId) {
+            console.log('💾 [SAVE DEBUG] NOT READY! Cannot save. Exiting.');
+            return;
+        }
 
         try {
+            console.log('💾 [SAVE DEBUG] Upserting session to Supabase...');
             // 1. Session upsert
             const { error: sessionError } = await supabase
                 .from('chat_sessions')
@@ -174,7 +252,11 @@ export const useSupabase = (naverUser) => {
                     post_data: session.post || {} // Save post data
                 }, { onConflict: 'id' });
 
-            if (sessionError) throw sessionError;
+            if (sessionError) {
+                console.error('💾 [SAVE DEBUG] Session upsert ERROR:', sessionError);
+                throw sessionError;
+            }
+            console.log('💾 [SAVE DEBUG] Session upsert SUCCESS!');
 
             // 2. Messages upsert
             if (session.messages && session.messages.length > 0) {
@@ -402,7 +484,7 @@ export const useSupabase = (naverUser) => {
             const fileName = `${supabaseUserId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
 
             // Upload to Supabase Storage
-            const { data, error } = await supabase.storage
+            const { error } = await supabase.storage
                 .from('chat-images')
                 .upload(fileName, blob, {
                     contentType: mimeType,
