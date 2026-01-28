@@ -40,16 +40,8 @@ export const useSupabase = (naverUser) => {
     // 2. Auto Login / Signup based on Naver ID (when naverUser is available)
     useEffect(() => {
         const naverId = naverUser?.id || naverUser?.nickname;
-        console.log('🔑 [AUTH DEBUG] ==================== START ====================');
-        console.log('🔑 [AUTH DEBUG] naverUser:', JSON.stringify(naverUser, null, 2));
-        console.log('🔑 [AUTH DEBUG] naverId determined:', naverId);
-        console.log('🔑 [AUTH DEBUG] isSupabaseReady:', isSupabaseReady);
-        console.log('🔑 [AUTH DEBUG] supabaseUserId:', supabaseUserId);
 
-        if (!naverId) {
-            console.log('🔑 [AUTH DEBUG] No naverId, exiting');
-            return;
-        }
+        if (!naverId) return;
 
         const autoLogin = async () => {
             // First, check if current Supabase session matches the Naver user
@@ -62,36 +54,28 @@ export const useSupabase = (naverUser) => {
                         .single();
 
                     if (profile && profile.naver_id === naverId) {
-                        console.log('🔑 [AUTH DEBUG] Session matches current Naver user, exiting');
-                        return;
+                        return; // Session matches, no need to re-login
                     } else {
-                        console.log('🔑 [AUTH DEBUG] Session mismatch! Profile naverId:', profile?.naver_id, 'vs current:', naverId);
-                        console.log('🔑 [AUTH DEBUG] Signing out stale session...');
+                        // Session mismatch, sign out and continue with new user
                         await supabase.auth.signOut();
                         setIsSupabaseReady(false);
                         setSupabaseUserId(null);
-                        // Continue to login with new user
                     }
                 } catch (error) {
-                    console.error('🔑 [AUTH DEBUG] Session check error:', error);
+                    console.error('Session check error:', error);
                 }
             }
 
             // Create email-safe identifier by hashing the naverId
-            // This ensures consistent, valid email format regardless of naverId content
             const encoder = new TextEncoder();
             const data = encoder.encode(naverId);
             const hashBuffer = await crypto.subtle.digest('SHA-256', data);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            const emailSafeId = hashHex.substring(0, 32); // Use first 32 chars of hash
+            const emailSafeId = hashHex.substring(0, 32);
 
             const email = `talklog.${emailSafeId}@gmail.com`;
-            const password = `talklog_secure_${emailSafeId}`; // Use same hash for consistency
-
-            console.log('🔑 [AUTH DEBUG] Email-safe ID generated:', emailSafeId);
-            console.log('🔑 [AUTH DEBUG] Original naverId:', naverId);
-            console.log('🔑 [AUTH DEBUG] Attempting login with email:', email);
+            const password = `talklog_secure_${emailSafeId}`;
 
             try {
                 // Try sign in
@@ -102,8 +86,6 @@ export const useSupabase = (naverUser) => {
 
                 if (signInError) {
                     // If fail, try sign up
-                    console.log('❌ [AUTH DEBUG] Sign in FAILED:', signInError.message);
-                    console.log('❌ [AUTH DEBUG] Attempting sign up...');
                     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
                         email,
                         password,
@@ -120,7 +102,6 @@ export const useSupabase = (naverUser) => {
                     if (signUpError) throw signUpError;
 
                     const userId = signUpData.user?.id;
-                    console.log('✅ [AUTH DEBUG] Sign up SUCCESS! New userId:', userId);
                     if (userId) {
                         setSupabaseUserId(userId);
                         // Sync Profile Data
@@ -135,7 +116,6 @@ export const useSupabase = (naverUser) => {
                     }
                 } else {
                     const userId = signInData.user?.id;
-                    console.log('✅ [AUTH DEBUG] Sign in SUCCESS! Existing userId:', userId);
                     if (userId) {
                         setSupabaseUserId(userId);
                         // Sync Profile Data on login too
@@ -151,11 +131,8 @@ export const useSupabase = (naverUser) => {
                 }
 
                 setIsSupabaseReady(true);
-                console.log('✅ [AUTH DEBUG] Supabase Connected! Ready to fetch data.');
-                console.log('🔑 [AUTH DEBUG] ==================== END ====================');
             } catch (error) {
-                console.error('❌ [AUTH DEBUG] Supabase Auth Error:', error);
-                console.log('🔑 [AUTH DEBUG] ==================== END (ERROR) ====================');
+                console.error('Supabase Auth Error:', error);
             }
         };
 
@@ -165,17 +142,11 @@ export const useSupabase = (naverUser) => {
 
     // 3. Data Fetching
     const fetchSessions = async () => {
-        console.log('📥 [FETCH DEBUG] ==================== FETCH SESSIONS ====================');
-        console.log('📥 [FETCH DEBUG] isSupabaseReady:', isSupabaseReady);
-        console.log('📥 [FETCH DEBUG] supabaseUserId:', supabaseUserId);
-
         if (!isSupabaseReady || !supabaseUserId) {
-            console.log('📥 [FETCH DEBUG] Not ready or no userId, returning empty array');
             return [];
         }
 
         try {
-            console.log('📥 [FETCH DEBUG] Querying Supabase with user_id:', supabaseUserId);
             const { data: sessions, error } = await supabase
                 .from('chat_sessions')
                 .select(`
@@ -186,13 +157,8 @@ export const useSupabase = (naverUser) => {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                console.error('📥 [FETCH DEBUG] Query ERROR:', error);
+                console.error('Fetch sessions error:', error);
                 throw error;
-            }
-
-            console.log('📥 [FETCH DEBUG] Query SUCCESS! Found', sessions?.length || 0, 'sessions');
-            if (sessions && sessions.length > 0) {
-                console.log('📥 [FETCH DEBUG] First session:', sessions[0].title);
             }
 
             // Transform DB structure to match App state structure
@@ -225,20 +191,11 @@ export const useSupabase = (naverUser) => {
 
     // 4. Save Session (Upsert)
     const saveSessionToSupabase = async (session) => {
-        console.log('💾 [SAVE DEBUG] ==================== SAVE SESSION ====================');
-        console.log('💾 [SAVE DEBUG] isSupabaseReady:', isSupabaseReady);
-        console.log('💾 [SAVE DEBUG] supabaseUserId:', supabaseUserId);
-        console.log('💾 [SAVE DEBUG] session.id:', session.id);
-        console.log('💾 [SAVE DEBUG] session.title:', session.title);
-        console.log('💾 [SAVE DEBUG] session.messages count:', session.messages?.length || 0);
-
         if (!isSupabaseReady || !supabaseUserId) {
-            console.log('💾 [SAVE DEBUG] NOT READY! Cannot save. Exiting.');
             return;
         }
 
         try {
-            console.log('💾 [SAVE DEBUG] Upserting session to Supabase...');
             // 1. Session upsert
             const { error: sessionError } = await supabase
                 .from('chat_sessions')
@@ -248,16 +205,15 @@ export const useSupabase = (naverUser) => {
                     title: session.title,
                     status: session.status,
                     is_representative: session.isRepresentative || false,
-                    published_at: session.publishedAt || null, // Explicitly set NULL if falsy
+                    published_at: session.publishedAt || null,
                     created_at: session.createdAt || new Date().toISOString(),
-                    post_data: session.post || {} // Save post data
+                    post_data: session.post || {}
                 }, { onConflict: 'id' });
 
             if (sessionError) {
-                console.error('💾 [SAVE DEBUG] Session upsert ERROR:', sessionError);
+                console.error('Save session error:', sessionError);
                 throw sessionError;
             }
-            console.log('💾 [SAVE DEBUG] Session upsert SUCCESS!');
 
             // 2. Messages upsert
             if (session.messages && session.messages.length > 0) {
@@ -324,26 +280,18 @@ export const useSupabase = (naverUser) => {
         }
     };
 
-    // 6. Upload File directly to Supabase Storage (iOS Safari compatible - NO base64 conversion)
+    // 6. Upload File directly to Supabase Storage (iOS Safari compatible)
     const uploadFileDirectly = async (file) => {
-        console.log('[DirectUpload] Start - isSupabaseReady:', isSupabaseReady, 'supabaseUserId:', supabaseUserId);
-
         if (!isSupabaseReady || !supabaseUserId) {
-            console.log('[DirectUpload] Session not ready, attempting recovery...');
-
             // iOS Safari: Try to refresh session if not ready
             try {
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                console.log('[DirectUpload] Session check result:', session ? 'found' : 'none', sessionError || '');
-
+                const { data: { session } } = await supabase.auth.getSession();
                 if (session?.user) {
-                    console.log('[DirectUpload] Session recovered:', session.user.id);
                     return await performDirectUpload(file, session.user.id);
                 }
             } catch (sessionError) {
-                console.error('[DirectUpload] Session recovery exception:', sessionError);
+                console.error('Session recovery error:', sessionError);
             }
-            console.error('[DirectUpload] Failed - no valid session');
             return null;
         }
 
@@ -353,17 +301,13 @@ export const useSupabase = (naverUser) => {
     // Helper function for direct upload
     const performDirectUpload = async (file, userId) => {
         try {
-            console.log('[DirectUpload] performDirectUpload start');
-            console.log('[DirectUpload] File:', file.name, 'Type:', file.type, 'Size:', file.size, 'bytes');
-            console.log('[DirectUpload] UserId:', userId);
-
             // Validate file
             if (!file || file.size < 100) {
-                console.error('[DirectUpload] Invalid file or too small');
+                console.error('Invalid file or too small');
                 return null;
             }
 
-            // Determine file extension (iOS may not provide correct type for HEIC)
+            // Determine file extension
             let fileExt = 'jpg';
             const fileType = file.type?.toLowerCase() || '';
             const originalFileName = file.name?.toLowerCase() || '';
@@ -376,16 +320,13 @@ export const useSupabase = (naverUser) => {
                 fileExt = 'webp';
             } else if (fileType.includes('heic') || fileType.includes('heif') ||
                        originalFileName.endsWith('.heic') || originalFileName.endsWith('.heif')) {
-                console.log('[DirectUpload] HEIC/HEIF detected, using jpg extension');
                 fileExt = 'jpg';
             }
 
             const uploadFileName = `${userId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
-            console.log('[DirectUpload] Target path:', uploadFileName);
 
-            // Upload File directly (most reliable for iOS)
-            console.log('[DirectUpload] Calling supabase.storage.upload...');
-            const { data, error } = await supabase.storage
+            // Upload File directly
+            const { error } = await supabase.storage
                 .from('chat-images')
                 .upload(uploadFileName, file, {
                     cacheControl: '3600',
@@ -393,24 +334,19 @@ export const useSupabase = (naverUser) => {
                 });
 
             if (error) {
-                console.error('[DirectUpload] Supabase error:', error.message);
-                console.error('[DirectUpload] Error details:', JSON.stringify(error));
+                console.error('Upload error:', error.message);
                 throw error;
             }
-
-            console.log('[DirectUpload] Upload response:', data);
 
             // Get public URL
             const { data: { publicUrl } } = supabase.storage
                 .from('chat-images')
                 .getPublicUrl(uploadFileName);
 
-            console.log('[DirectUpload] SUCCESS - URL:', publicUrl);
             return publicUrl;
 
         } catch (error) {
-            console.error('[DirectUpload] Exception:', error.message || error);
-            console.error('[DirectUpload] Stack:', error.stack);
+            console.error('Direct upload error:', error.message || error);
             return null;
         }
     };
@@ -418,69 +354,46 @@ export const useSupabase = (naverUser) => {
     // 7. Upload Image to Supabase Storage (base64 version - fallback)
     const uploadImageToSupabase = async (base64Image) => {
         if (!isSupabaseReady || !supabaseUserId) {
-            console.error('Supabase not ready or user not logged in');
             return null;
         }
 
         try {
             // Validate input
-            if (!base64Image || typeof base64Image !== 'string') {
-                console.error('Invalid base64Image input:', typeof base64Image);
+            if (!base64Image || typeof base64Image !== 'string' || !base64Image.startsWith('data:')) {
                 return null;
             }
 
-            if (!base64Image.startsWith('data:')) {
-                console.error('base64Image does not start with data:', base64Image.substring(0, 50));
-                return null;
-            }
-
-            // Extract mime type with better error handling (iOS HEIC support)
+            // Extract mime type
             const mimeMatch = base64Image.match(/data:([^;]+);/);
-            let mimeType = 'image/jpeg'; // Default fallback
+            let mimeType = 'image/jpeg';
 
             if (mimeMatch) {
                 mimeType = mimeMatch[1];
-                // Normalize HEIC/HEIF to JPEG (already converted by canvas)
                 if (mimeType.includes('heic') || mimeType.includes('heif')) {
-                    console.log('HEIC detected, treating as JPEG (already converted)');
                     mimeType = 'image/jpeg';
                 }
-            } else {
-                console.warn('Could not extract mime type, using default: image/jpeg');
             }
-            console.log('Using mime type:', mimeType);
 
             // Convert base64 to Blob
             const base64Data = base64Image.split(',')[1];
-            if (!base64Data) {
-                console.error('Could not extract base64 data');
-                return null;
-            }
+            if (!base64Data) return null;
 
             // iOS Safari compatible base64 decoding
-            let byteArray;
-            try {
-                const byteCharacters = atob(base64Data);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                byteArray = new Uint8Array(byteNumbers);
-            } catch (decodeError) {
-                console.error('Base64 decode error:', decodeError);
-                return null;
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
+            const byteArray = new Uint8Array(byteNumbers);
 
             const blob = new Blob([byteArray], { type: mimeType });
-            console.log('Blob created, size:', blob.size, 'bytes');
 
-            // Validate blob size (prevent empty uploads)
+            // Validate blob size
             if (blob.size < 100) {
-                console.error('Blob too small, likely invalid:', blob.size);
                 return null;
             }
 
-            // Generate unique filename (always use jpg for consistency)
+            // Generate unique filename
             const fileExt = mimeType === 'image/png' ? 'png' : 'jpg';
             const fileName = `${supabaseUserId}/${Date.now()}_${crypto.randomUUID()}.${fileExt}`;
 
@@ -500,11 +413,10 @@ export const useSupabase = (naverUser) => {
                 .from('chat-images')
                 .getPublicUrl(fileName);
 
-            console.log('Image uploaded successfully:', publicUrl);
             return publicUrl;
 
         } catch (error) {
-            console.error('Image Upload Error:', error);
+            console.error('Image upload error:', error);
             return null;
         }
     };
@@ -544,6 +456,202 @@ export const useSupabase = (naverUser) => {
         }
     };
 
+    // 9. Fetch Subscription Status
+    const fetchSubscriptionStatus = async () => {
+        if (!isSupabaseReady || !supabaseUserId) {
+            return null;
+        }
+
+        try {
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('subscription_tier, subscription_status, blog_generation_count, subscription_end_date')
+                .eq('id', supabaseUserId)
+                .single();
+
+            if (error) {
+                console.error('Fetch subscription error:', error);
+                return null;
+            }
+
+            const tier = profile.subscription_tier || 'free';
+            const limit = tier === 'free' ? 30 : Infinity;
+
+            return {
+                tier,
+                status: profile.subscription_status || 'active',
+                blogCount: profile.blog_generation_count || 0,
+                limit,
+                endDate: profile.subscription_end_date
+            };
+        } catch (error) {
+            console.error('Fetch Subscription Status Error:', error);
+            return null;
+        }
+    };
+
+    // 10. Check Blog Generation Limit
+    const checkBlogGenerationLimit = async () => {
+        if (!isSupabaseReady || !supabaseUserId) {
+            return {
+                allowed: false,
+                remaining: 0,
+                message: 'User not authenticated'
+            };
+        }
+
+        try {
+            const subscriptionStatus = await fetchSubscriptionStatus();
+
+            if (!subscriptionStatus) {
+                return {
+                    allowed: false,
+                    remaining: 0,
+                    message: 'Failed to fetch subscription status'
+                };
+            }
+
+            const { tier, blogCount, limit } = subscriptionStatus;
+
+            if (tier === 'premium') {
+                return {
+                    allowed: true,
+                    remaining: Infinity,
+                    message: 'Unlimited generation available'
+                };
+            }
+
+            // Free tier check
+            const remaining = Math.max(0, limit - blogCount);
+            const allowed = blogCount < limit;
+
+            return {
+                allowed,
+                remaining,
+                message: allowed
+                    ? `${remaining} generations remaining`
+                    : 'Monthly limit reached. Upgrade to Premium for unlimited generation.'
+            };
+        } catch (error) {
+            console.error('Check Blog Generation Limit Error:', error);
+            return {
+                allowed: false,
+                remaining: 0,
+                message: 'Error checking generation limit'
+            };
+        }
+    };
+
+    // 11. Increment Blog Count
+    const incrementBlogCount = async () => {
+        if (!isSupabaseReady || !supabaseUserId) {
+            console.warn('Cannot increment blog count: user not ready');
+            return false;
+        }
+
+        try {
+            // First fetch current subscription tier
+            const { data: profile, error: fetchError } = await supabase
+                .from('profiles')
+                .select('subscription_tier, blog_generation_count')
+                .eq('id', supabaseUserId)
+                .single();
+
+            if (fetchError) {
+                console.error('Fetch profile error:', fetchError);
+                return false;
+            }
+
+            const tier = profile.subscription_tier || 'free';
+
+            // Only increment for free tier users
+            if (tier !== 'free') {
+                console.log('Premium user, skipping blog count increment');
+                return true;
+            }
+
+            const currentCount = profile.blog_generation_count || 0;
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({
+                    blog_generation_count: currentCount + 1,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', supabaseUserId);
+
+            if (updateError) {
+                console.error('Increment blog count error:', updateError);
+                return false;
+            }
+
+            console.log('Blog count incremented:', currentCount + 1);
+            return true;
+        } catch (error) {
+            console.error('Increment Blog Count Error:', error);
+            return false;
+        }
+    };
+
+    // 12. Initiate Payment (PortOne)
+    const initiatePayment = async (planType) => {
+        if (!isSupabaseReady || !supabaseUserId) {
+            throw new Error('User not authenticated');
+        }
+
+        try {
+            const { data, error } = await supabase.functions.invoke('create-payment', {
+                body: {
+                    userId: supabaseUserId,
+                    amount: 2000,
+                    planType
+                }
+            });
+
+            if (error) {
+                console.error('Payment initiation error:', error);
+                throw error;
+            }
+
+            if (!data || !data.paymentId) {
+                throw new Error('Payment data not returned');
+            }
+
+            // Return payment data for PortOne SDK
+            // storeId, paymentId, amount, orderName, etc.
+            return data;
+        } catch (error) {
+            console.error('Initiate Payment Error:', error);
+            throw error;
+        }
+    };
+
+    // 13. Cancel Subscription
+    const cancelSubscription = async () => {
+        if (!isSupabaseReady || !supabaseUserId) {
+            throw new Error('User not authenticated');
+        }
+
+        try {
+            const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+                body: {
+                    userId: supabaseUserId
+                }
+            });
+
+            if (error) {
+                console.error('Subscription cancellation error:', error);
+                throw error;
+            }
+
+            console.log('Subscription cancelled successfully');
+            return data;
+        } catch (error) {
+            console.error('Cancel Subscription Error:', error);
+            throw error;
+        }
+    };
+
     return {
         isSupabaseReady,
         supabaseUserId,
@@ -552,6 +660,11 @@ export const useSupabase = (naverUser) => {
         deleteSessionFromSupabase,
         uploadFileDirectly,
         uploadImageToSupabase,
-        logErrorToSupabase
+        logErrorToSupabase,
+        fetchSubscriptionStatus,
+        checkBlogGenerationLimit,
+        incrementBlogCount,
+        initiatePayment,
+        cancelSubscription
     };
 };

@@ -1,4 +1,4 @@
-// v01.27r11
+// v01.27r12
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -13,6 +13,9 @@ import './index.css';
 import HomeView from './HomeView';
 import { useSupabase } from './hooks/useSupabase';
 import { supabase } from './supabaseClient';
+import SubscriptionModal from './components/SubscriptionModal';
+import SubscriptionBadge from './components/SubscriptionBadge';
+import * as PortOne from '@portone/browser-sdk/v2';
 
 // Constants
 const GEMINI_MODEL = "gemini-2.0-flash";
@@ -87,9 +90,48 @@ const App = () => {
   const [contextMenu, setContextMenu] = useState({ visible: false, sessionId: null, x: 0, y: 0 });
   const [isSelectMode, setIsSelectMode] = useState(false);
 
+  // Subscription State
+  const [subscriptionData, setSubscriptionData] = useState(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
   // --- Supabase Integration ---
-  const { isSupabaseReady, supabaseUserId, fetchSessions, saveSessionToSupabase, deleteSessionFromSupabase, uploadImageToSupabase, uploadFileDirectly, logErrorToSupabase } = useSupabase(naverUser);
+  const {
+    isSupabaseReady,
+    supabaseUserId,
+    fetchSessions,
+    saveSessionToSupabase,
+    deleteSessionFromSupabase,
+    uploadImageToSupabase,
+    uploadFileDirectly,
+    logErrorToSupabase,
+    fetchSubscriptionStatus,
+    checkBlogGenerationLimit,
+    incrementBlogCount,
+    initiatePayment,
+  } = useSupabase(naverUser);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // Load Subscription Status
+  const loadSubscription = useCallback(async () => {
+    const data = await fetchSubscriptionStatus();
+    setSubscriptionData(data);
+  }, [fetchSubscriptionStatus]);
+
+  // Load Subscription Status on mount
+  useEffect(() => {
+    if (isSupabaseReady && supabaseUserId) {
+      loadSubscription();
+    }
+  }, [isSupabaseReady, supabaseUserId, loadSubscription]);
+
+  // Handle payment success from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      loadSubscription();
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [loadSubscription]);
 
   // Load Sessions from Supabase (SINGLE SOURCE OF TRUTH)
   useEffect(() => {
@@ -774,6 +816,13 @@ ${validRefs.map((t, i) => `--- 글 #${i + 1} ---\n${t}`).join('\n\n')}
 
   // --- Blog Generation ---
   const generateBlogPost = async () => {
+    // Check subscription limit FIRST
+    const limitCheck = await checkBlogGenerationLimit();
+    if (!limitCheck.allowed) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     if (!apiKeys.gemini) { alert('서비스 설정 오류: API 키가 구성되지 않았습니다.'); return; }
     if (!currentSession) { alert('세션을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
     setIsGenerating(true);
@@ -879,6 +928,9 @@ ${chatSummary}`;
       setSessions(finalSessions);
       setHasNewPostContent(true);
       pushToHistory(newPost);
+
+      // Increment blog count after successful generation
+      await incrementBlogCount();
 
       // Note: localStorage saving is handled automatically by the useEffect hook
     } catch (err) {
@@ -1625,6 +1677,28 @@ ${chatSummary}`;
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          {subscriptionData && (
+            <div
+              onClick={() => setShowSubscriptionModal(true)}
+              style={{
+                cursor: 'pointer',
+                transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              title="무제한으로 계속하기"
+            >
+              <SubscriptionBadge
+                tier={subscriptionData.tier}
+                count={subscriptionData.blogCount}
+                limit={30}
+              />
+            </div>
+          )}
           {naverUser && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
               <img src={naverUser.profileImage || 'https://via.placeholder.com/20'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
@@ -1989,6 +2063,64 @@ ${chatSummary}`;
           </button>
         )}
       </main>
+
+      {/* Subscription Modal */}
+      {showSubscriptionModal && (
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={() => setShowSubscriptionModal(false)}
+          onSubscribe={async () => {
+            try {
+              // Get payment data from backend
+              const paymentData = await initiatePayment('premium');
+
+              if (!paymentData || !paymentData.storeId || !paymentData.paymentId) {
+                throw new Error('결제 정보를 가져오지 못했습니다');
+              }
+
+              // Open PortOne payment window
+              const response = await PortOne.requestPayment({
+                storeId: paymentData.storeId,
+                paymentId: paymentData.paymentId,
+                orderName: paymentData.orderName || '네이버 블로그 위저드 프리미엄',
+                totalAmount: paymentData.amount || 2000,
+                currency: 'KRW',
+                channelKey: import.meta.env.VITE_PORTONE_CHANNEL_KEY || '',
+                payMethod: 'EASY_PAY', // Allow easy pay options (KakaoPay, Toss, Naver, etc.)
+                customer: {
+                  fullName: paymentData.customerName || '사용자',
+                  email: paymentData.customerEmail || '',
+                },
+                redirectUrl: `${window.location.origin}/payment/complete`,
+                noticeUrls: [
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payment-webhook`
+                ],
+              });
+
+              // Handle payment result
+              if (response.code === 'FAILURE_TYPE_PG') {
+                alert(`결제 실패: ${response.message}`);
+              } else if (response.code) {
+                alert(`결제 중 오류가 발생했습니다: ${response.message}`);
+              } else {
+                // Payment initiated successfully
+                // Close modal and wait for webhook to update subscription
+                setShowSubscriptionModal(false);
+                alert('결제가 진행 중입니다. 완료되면 프리미엄이 활성화됩니다.');
+
+                // Refresh subscription status after a delay
+                setTimeout(async () => {
+                  await loadSubscription();
+                }, 3000);
+              }
+            } catch (error) {
+              console.error('Payment error:', error);
+              alert('결제 시작에 실패했습니다: ' + error.message);
+            }
+          }}
+          remainingCount={subscriptionData?.remaining || 0}
+        />
+      )}
     </div>
   );
 };
