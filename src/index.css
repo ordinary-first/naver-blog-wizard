@@ -644,6 +644,25 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   }
+
+  .tab svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .edit-input-gradient {
+    padding: 1rem !important;
+  }
+
+  .edit-input-bar {
+    padding: 0.4rem 0.8rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .edit-input-bar .sparkles-icon svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -672,5 +691,95 @@ body {
   .button-hover[style*="rgba(3, 199, 90, 0.1)"] {
     padding: 6px 10px !important;
     font-size: 0.75rem !important;
+  }
+
+  /* Header adjustments */
+  .app-container header {
+    margin: 0.3rem !important;
+    padding: 0.4rem 0.6rem !important;
+  }
+
+  header h1 {
+    font-size: 0.9rem !important;
+  }
+
+  /* Version badge - hide on very small screens */
+  .version-badge {
+    display: none !important;
+  }
+
+  /* Tab adjustments */
+  .tab {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .tab svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .tab-container {
+    left: 0.3rem !important;
+    right: 0.3rem !important;
+  }
+
+  /* Chat input bar */
+  .chat-input-bar {
+    padding: 0.4rem 0.5rem 0.4rem 0.8rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .chat-input-bar .image-upload-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .chat-input-bar .send-btn {
+    padding: 0.6rem !important;
+  }
+
+  .chat-input-bar .send-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Edit input bar */
+  .edit-input-bar {
+    padding: 0.4rem 0.8rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .edit-input-bar .sparkles-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .edit-input-bar input {
+    font-size: 0.9rem !important;
+  }
+
+  .edit-input-bar button {
+    padding: 0.6rem 1rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* CTA button */
+  .cta-button {
+    width: 90% !important;
+    padding: 0.8rem 1.2rem !important;
+    font-size: 0.9rem !important;
+    bottom: 1.5rem !important;
+  }
+
+  /* Message bubbles */
+  .message {
+    max-width: 95% !important;
+  }
+
+  /* Subscription badge responsive */
+  .subscription-badge-wrapper {
+    transform: scale(0.85);
+    transform-origin: right center;
   }
 }

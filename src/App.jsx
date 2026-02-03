@@ -1760,12 +1760,13 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.29</span>
+            <span className="version-badge" style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.30</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
           {subscriptionData && (
             <div
+              className="subscription-badge-wrapper"
               onClick={() => setShowSubscriptionModal(true)}
               style={{
                 cursor: 'pointer',
@@ -1931,10 +1932,10 @@ ${chatSummary}`;
                 </div>
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, var(--bg-dark) 80%, transparent)', padding: '1.5rem 1rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
                   {!isGenerating && currentSession?.messages.filter(m => m.sender === 'user').length > 0 && <button className="button-hover reveal cta-style" onClick={generateBlogPost} style={{ background: 'var(--naver-green)', color: 'white', padding: '1rem 2.5rem', borderRadius: '50px', fontWeight: '900', border: 'none', display: 'flex', alignItems: 'center', gap: '0.8rem' }}><Sparkles size={20} /> AI 블로그 포스팅 생성</button>}
-                  <div className="glass-heavy input-glow" style={{ maxWidth: '750px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: window.innerWidth < 600 ? '0.4rem 0.5rem 0.4rem 0.8rem' : '0.6rem 1rem', gap: window.innerWidth < 600 ? '0.5rem' : '0.8rem', border: '1px solid var(--glass-border)' }}>
-                    <label className="button-hover" style={{ padding: '0.5rem', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', flexShrink: 0 }}><ImageIcon size={22} /><input type="file" accept="image/*" multiple hidden onChange={handleImageUpload} /></label>
+                  <div className="glass-heavy input-glow chat-input-bar" style={{ maxWidth: '750px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: '0.6rem 1rem', gap: '0.8rem', border: '1px solid var(--glass-border)' }}>
+                    <label className="button-hover image-upload-btn" style={{ padding: '0.5rem', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', flexShrink: 0 }}><ImageIcon size={22} /><input type="file" accept="image/*" multiple hidden onChange={handleImageUpload} /></label>
                     <input type="text" placeholder={window.innerWidth < 600 ? "오늘 무엇을 하셨나요?" : "오늘 무엇을 하셨나요? AI가 블로그 글로 만들어드릴게요."} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: 'var(--text-main)', padding: '0.6rem 0', fontSize: '1rem', outline: 'none' }} value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && (handleSendMessage(inputText), setInputText(''))} />
-                    <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: '0.7rem', borderRadius: '50%', border: 'none', display: 'flex', flexShrink: 0 }} onClick={() => { handleSendMessage(inputText); setInputText(''); }} disabled={!inputText.trim()}><Send size={20} /></button>
+                    <button className="button-hover send-btn" style={{ background: 'var(--naver-green)', color: 'white', padding: '0.7rem', borderRadius: '50%', border: 'none', display: 'flex', flexShrink: 0 }} onClick={() => { handleSendMessage(inputText); setInputText(''); }} disabled={!inputText.trim()}><Send size={20} /></button>
                   </div>
                 </div>
               </div>
@@ -2172,11 +2173,11 @@ ${chatSummary}`;
                 )}
 
                 {/* AI Edit Input Bar */}
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, var(--bg-dark) 85%, transparent)', padding: window.innerWidth < 768 ? '1rem' : '2rem', display: 'flex', justifyContent: 'center', zIndex: 10, pointerEvents: 'none' }}>
-                  <div className="glass-heavy input-glow" style={{ pointerEvents: 'auto', maxWidth: '800px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: window.innerWidth < 768 ? '0.4rem 0.8rem' : '0.7rem 1.2rem', gap: window.innerWidth < 768 ? '0.5rem' : '1rem', border: editingBlockId ? '2px solid var(--naver-green)' : '1px solid var(--glass-border)' }}>
-                    <Sparkles size={window.innerWidth < 768 ? 18 : 22} color="var(--naver-green)" />
-                    <input ref={postInputRef} type="text" placeholder={editingBlockId ? (window.innerWidth < 600 ? "어떻게 고칠까요?" : "선택한 문단을 어떻게 고칠까요?") : "수정 사항 입력"} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text-main)', padding: '0.6rem', fontSize: window.innerWidth < 600 ? '0.9rem' : '1rem', outline: 'none' }} value={postEditInput} onChange={(e) => setPostEditInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handlePostEditRequest()} />
-                    <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: window.innerWidth < 768 ? '0.6rem 1rem' : '0.7rem 1.5rem', borderRadius: '30px', border: 'none', fontWeight: '900', fontSize: window.innerWidth < 600 ? '0.8rem' : '1rem' }} onClick={() => handlePostEditRequest()} disabled={!postEditInput.trim() || isGenerating}>수정</button>
+                <div className="edit-input-gradient" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, var(--bg-dark) 85%, transparent)', padding: '2rem', display: 'flex', justifyContent: 'center', zIndex: 10, pointerEvents: 'none' }}>
+                  <div className="glass-heavy input-glow edit-input-bar" style={{ pointerEvents: 'auto', maxWidth: '800px', width: '100%', borderRadius: '50px', display: 'flex', alignItems: 'center', padding: '0.7rem 1.2rem', gap: '1rem', border: editingBlockId ? '2px solid var(--naver-green)' : '1px solid var(--glass-border)' }}>
+                    <Sparkles className="sparkles-icon" size={22} color="var(--naver-green)" />
+                    <input ref={postInputRef} type="text" placeholder={editingBlockId ? (window.innerWidth < 600 ? "어떻게 고칠까요?" : "선택한 문단을 어떻게 고칠까요?") : "수정 사항 입력"} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text-main)', padding: '0.6rem', fontSize: '1rem', outline: 'none' }} value={postEditInput} onChange={(e) => setPostEditInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handlePostEditRequest()} />
+                    <button className="button-hover" style={{ background: 'var(--naver-green)', color: 'white', padding: '0.7rem 1.5rem', borderRadius: '30px', border: 'none', fontWeight: '900', fontSize: '1rem' }} onClick={() => handlePostEditRequest()} disabled={!postEditInput.trim() || isGenerating}>수정</button>
                   </div>
                 </div>
               </div>
