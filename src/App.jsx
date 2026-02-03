@@ -68,6 +68,10 @@ const App = () => {
   const [previewMode, setPreviewMode] = useState('pc'); // 'pc' | 'tablet' | 'mobile'
   const [aiResponsesEnabled, setAiResponsesEnabled] = useState(true);
   const [isToolbarOpen, setIsToolbarOpen] = useState(false); // Floating toolbar toggle
+  const [draggedBlockIndex, setDraggedBlockIndex] = useState(null); // Drag and drop state
+  const [dragOverIndex, setDragOverIndex] = useState(null); // Index being hovered over
+  const [dropPosition, setDropPosition] = useState(null); // 'above' | 'below' | null
+  const [previewContent, setPreviewContent] = useState(null); // Temporary reordered array for preview
 
   // App Global States
   const [isGenerating, setIsGenerating] = useState(false);
@@ -93,6 +97,7 @@ const App = () => {
   // Subscription State
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState(false);
 
   // --- Supabase Integration ---
   const {
@@ -121,8 +126,14 @@ const App = () => {
   useEffect(() => {
     if (isSupabaseReady && supabaseUserId) {
       loadSubscription();
+
+      // If payment was pending, show modal after login
+      if (pendingPayment) {
+        setPendingPayment(false);
+        setShowSubscriptionModal(true);
+      }
     }
-  }, [isSupabaseReady, supabaseUserId, loadSubscription]);
+  }, [isSupabaseReady, supabaseUserId, loadSubscription, pendingPayment]);
 
   // Handle payment success from URL params
   useEffect(() => {
@@ -1032,6 +1043,82 @@ ${chatSummary}`;
     setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, post: updatedPost } : s));
     pushToHistory(updatedPost);
   };
+
+  // Drag and Drop handlers
+  const resetDragState = () => {
+    setDraggedBlockIndex(null);
+    setDragOverIndex(null);
+    setDropPosition(null);
+    setPreviewContent(null);
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedBlockIndex(index);
+    setPreviewContent([...currentSession.post.content]);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnter = (e, index) => {
+    e.preventDefault();
+    if (draggedBlockIndex === null || draggedBlockIndex === index) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const blockMiddle = rect.top + rect.height / 2;
+
+    setDragOverIndex(index);
+    setDropPosition(mouseY < blockMiddle ? 'above' : 'below');
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (draggedBlockIndex === null || draggedBlockIndex === index) return;
+
+    // Calculate drop position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const blockMiddle = rect.top + rect.height / 2;
+    const newPosition = mouseY < blockMiddle ? 'above' : 'below';
+
+    if (newPosition !== dropPosition || index !== dragOverIndex) {
+      setDropPosition(newPosition);
+      setDragOverIndex(index);
+
+      // Generate preview array
+      const content = [...currentSession.post.content];
+      const draggedBlock = content[draggedBlockIndex];
+
+      let targetIndex = index;
+      if (newPosition === 'below' && index < draggedBlockIndex) targetIndex++;
+      if (newPosition === 'above' && index > draggedBlockIndex) targetIndex--;
+
+      const preview = [...content];
+      preview.splice(draggedBlockIndex, 1);
+      preview.splice(targetIndex, 0, draggedBlock);
+
+      setPreviewContent(preview);
+    }
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedBlockIndex === null) return;
+
+    const finalContent = previewContent || [...currentSession.post.content];
+
+    const updatedPost = { ...currentSession.post, content: finalContent };
+    setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, post: updatedPost } : s));
+    pushToHistory(updatedPost);
+
+    resetDragState();
+  };
+
+  const handleDragEnd = (e) => {
+    resetDragState();
+  };
+
   const aiEditBlock = (block) => {
     setEditingBlockId(block.id);
     setPostEditInput(`"${block.value.slice(0, 50)}..." 부분을 `);
@@ -1886,8 +1973,48 @@ ${chatSummary}`;
 
                     {isGenerating ? <div style={{ textAlign: 'center', padding: '6rem 0' }}><div className="floating-action" style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🪄</div><p style={{ color: 'var(--text-dim)' }}>AI가 블로그 거장을 위한 글을 빚고 있습니다...</p></div> :
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {currentSession?.post.content.map((block, idx) => (
-                          <div key={block.id} className={`editor-block reveal ${editingBlockId === block.id ? 'active' : ''}`} onClick={() => setEditingBlockId(block.id === editingBlockId ? null : block.id)}>
+                        {(previewContent || currentSession?.post.content).map((block, idx) => {
+                          const isDragging = draggedBlockIndex === idx;
+                          const isDragOver = dragOverIndex === idx;
+                          const isAbove = isDragOver && dropPosition === 'above';
+                          const isBelow = isDragOver && dropPosition === 'below';
+
+                          return (
+                          <div
+                            key={block.id}
+                            className={`editor-block reveal
+                              ${editingBlockId === block.id ? 'active' : ''}
+                              ${isDragging ? 'dragging' : ''}
+                              ${isDragOver ? 'drag-over' : ''}
+                              ${isAbove ? 'drag-over-above' : ''}
+                              ${isBelow ? 'drag-over-below' : ''}
+                            `}
+                            onClick={() => setEditingBlockId(block.id === editingBlockId ? null : block.id)}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, idx)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDragEnter={(e) => handleDragEnter(e, idx)}
+                            onDrop={(e) => handleDrop(e, idx)}
+                            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                          >
+                            {/* Drag Handle */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: '-20px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                opacity: 0,
+                                transition: 'opacity 0.2s',
+                                cursor: 'grab',
+                                color: 'var(--text-muted)',
+                              }}
+                              className="drag-handle"
+                            >
+                              <GripVertical size={18} />
+                            </div>
+
                             <div className="block-type-badge">{
                               block.type === 'text' ? `문단` :
                                 block.type === 'image' ? `이미지` :
@@ -1929,7 +2056,8 @@ ${chatSummary}`;
                               </div>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     }
 
@@ -2070,6 +2198,15 @@ ${chatSummary}`;
           isOpen={showSubscriptionModal}
           onClose={() => setShowSubscriptionModal(false)}
           onSubscribe={async () => {
+            // Check if user is logged in
+            if (!isSupabaseReady || !supabaseUserId) {
+              alert('결제를 진행하려면 네이버 로그인이 필요합니다.\n로그인 후 다시 시도해주세요.');
+              setPendingPayment(true);
+              setShowSubscriptionModal(false);
+              setView('home'); // This will trigger LoginView since naverUser is null
+              return;
+            }
+
             try {
               // Get payment data from backend
               const paymentData = await initiatePayment('premium');

@@ -435,7 +435,7 @@ body {
   padding: 1.5rem 1rem;
   border-radius: 12px;
   border: 1px solid transparent;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
   position: relative;
   margin-bottom: 0.5rem;
 }
@@ -448,6 +448,75 @@ body {
 .editor-block.active {
   background: rgba(3, 199, 90, 0.02);
   border-color: var(--naver-green);
+}
+
+.editor-block.dragging {
+  opacity: 0.5;
+  cursor: grabbing !important;
+  transform: scale(0.98);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+.editor-block:active {
+  cursor: grabbing;
+}
+
+/* Drop Zone Indicators */
+.editor-block.drag-over-above::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--naver-green) 15%,
+    var(--naver-green) 85%,
+    transparent 100%
+  );
+  animation: dropIndicatorSlide 0.3s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  z-index: 10;
+}
+
+.editor-block.drag-over-below::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--naver-green) 15%,
+    var(--naver-green) 85%,
+    transparent 100%
+  );
+  animation: dropIndicatorSlide 0.3s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  z-index: 10;
+}
+
+/* Drop Indicator Animation */
+@keyframes dropIndicatorSlide {
+  from {
+    opacity: 0;
+    transform: scaleX(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* Drag Over Highlight */
+.editor-block.drag-over {
+  background: rgba(3, 199, 90, 0.03);
+  border-color: rgba(3, 199, 90, 0.2);
+}
+
+.editor-block:hover .drag-handle {
+  opacity: 1 !important;
 }
 
 .block-toolbar {
