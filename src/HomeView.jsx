@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Search, X, MessageCircle, Star, BookOpen, ChevronDown, Trash2, CheckCircle, Circle } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 const HomeView = ({
     naverUser,
@@ -31,6 +32,64 @@ const HomeView = ({
     const [lastScrollY, setLastScrollY] = useState(0);
     const [appHeaderVisible, setAppHeaderVisible] = useState(true);
     const [selectedIds, setSelectedIds] = useState([]);
+
+    // 이메일 인증 상태
+    const [emailVerified, setEmailVerified] = useState(true);
+    const [showEmailBanner, setShowEmailBanner] = useState(false);
+
+    // 이메일 인증 확인
+    useEffect(() => {
+        const checkEmailVerification = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (user && user.email_confirmed_at === null) {
+                // profiles 테이블에서 naver_id 확인
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('naver_id')
+                    .eq('id', user.id)
+                    .single();
+
+                // 이메일 사용자 (naver_id가 null)이고 미인증인 경우
+                if (!profile?.naver_id) {
+                    setEmailVerified(false);
+                    setShowEmailBanner(!sessionStorage.getItem('emailBannerDismissed'));
+                }
+            }
+        };
+
+        checkEmailVerification();
+    }, []);
+
+    // 인증 메일 재전송
+    const resendVerificationEmail = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user?.email) {
+            alert('이메일 정보를 찾을 수 없습니다');
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.resend({
+                type: 'signup',
+                email: user.email
+            });
+
+            if (error) throw error;
+
+            alert('인증 메일이 재전송되었습니다. 이메일을 확인해주세요.');
+        } catch (error) {
+            console.error('재전송 에러:', error);
+            alert('재전송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        }
+    };
+
+    // "나중에 하기" 처리
+    const dismissEmailBanner = () => {
+        sessionStorage.setItem('emailBannerDismissed', 'true');
+        setShowEmailBanner(false);
+    };
 
     // Smooth scroll-based header control
     useEffect(() => {
@@ -203,6 +262,60 @@ const HomeView = ({
 
     return (
         <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
+            {/* 이메일 인증 배너 */}
+            {showEmailBanner && !emailVerified && (
+                <div style={{
+                    position: 'fixed',
+                    top: appHeaderVisible ? '60px' : '0px',
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    padding: '0.8rem 1.5rem',
+                    textAlign: 'center',
+                    color: 'white',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}>
+                    <span>⚠️ 이메일 인증이 필요합니다.</span>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button
+                            onClick={resendVerificationEmail}
+                            style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                padding: '0.4rem 1rem',
+                                borderRadius: '6px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: '600'
+                            }}
+                        >
+                            재전송
+                        </button>
+                        <button
+                            onClick={dismissEmailBanner}
+                            style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                padding: '0.4rem 1rem',
+                                borderRadius: '6px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: '600'
+                            }}
+                        >
+                            나중에
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Fixed Header: Profile + Tabs */}
             <div style={{
                 position: 'fixed',

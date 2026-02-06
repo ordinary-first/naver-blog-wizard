@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Sparkles, Zap, CheckCircle } from 'lucide-react';
+import Footer from './Footer';
 
 /**
  * SubscriptionModal - Premium upsell modal with glass-morphism aesthetic
@@ -9,6 +10,8 @@ import { X, Sparkles, Zap, CheckCircle } from 'lucide-react';
  * @param {number} remainingCount - Remaining free uses (0-30)
  */
 const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 }) => {
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
   if (!isOpen) return null;
 
   return (
@@ -130,6 +133,17 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 })
               무료 {remainingCount ? `${30 - remainingCount}회` : '30회'}를 모두 사용하셨어요. 이제 무제한으로 이어가세요!
             </p>
 
+            {/* Service Description */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.75rem' }}>
+                이 구독에 포함된 내용
+              </h3>
+              <p style={{ fontSize: '0.95rem', color: 'var(--text-dim)', lineHeight: 1.6 }}>
+                네이버 블로그 위저드는 AI 기반 블로그 글 작성 보조 서비스입니다.
+                대화형 인터페이스를 통해 블로그 포스트를 자동으로 생성하고 편집할 수 있습니다.
+              </p>
+            </div>
+
             {/* Features List */}
             <div
               style={{
@@ -170,32 +184,98 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 })
               </div>
             </div>
 
+            {/* Terms Acceptance */}
+            <label
+              style={{
+                display: 'flex',
+                gap: '0.75rem',
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                marginBottom: '1.5rem',
+                padding: '1rem',
+                background: 'rgba(255, 255, 255, 0.03)',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                style={{
+                  marginTop: '0.25rem',
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer',
+                  accentColor: 'var(--naver-green)',
+                }}
+              />
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)', lineHeight: 1.5, flex: 1 }}>
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--naver-green)', textDecoration: 'none', fontWeight: '600' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  이용약관
+                </a>
+                {' '}및{' '}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--naver-green)', textDecoration: 'none', fontWeight: '600' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  개인정보처리방침
+                </a>
+                에 동의합니다.
+              </span>
+            </label>
+
             {/* CTA Button */}
             <button
               onClick={onSubscribe}
+              disabled={!termsAccepted}
               className="button-hover"
               style={{
                 width: '100%',
                 padding: '1.25rem',
                 borderRadius: '16px',
-                background: 'var(--naver-green)',
-                color: 'white',
+                background: termsAccepted ? 'var(--naver-green)' : 'rgba(255, 255, 255, 0.1)',
+                color: termsAccepted ? 'white' : 'var(--text-muted)',
                 fontSize: '1.1rem',
                 fontWeight: '800',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: termsAccepted ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.75rem',
-                boxShadow: '0 10px 30px rgba(3, 199, 90, 0.3)',
+                boxShadow: termsAccepted ? '0 10px 30px rgba(3, 199, 90, 0.3)' : 'none',
                 marginBottom: '0.75rem',
+                opacity: termsAccepted ? 1 : 0.5,
+                transition: 'all 0.3s',
               }}
             >
               <span style={{ fontSize: '1.3rem' }}>🟢</span>
               무제한으로 시작하기
-              <Zap size={20} fill="white" />
+              <Zap size={20} fill={termsAccepted ? 'white' : 'currentColor'} />
             </button>
+
+            {/* Refund Policy Link */}
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.5rem', marginBottom: '1.5rem' }}>
+              구매 후 7일 이내 미사용 시 환불 가능.{' '}
+              <a
+                href="/refund"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--naver-green)', textDecoration: 'none' }}
+              >
+                환불정책 보기
+              </a>
+            </p>
 
             {/* Secondary Action */}
             <button
@@ -211,10 +291,14 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 })
                 fontWeight: '600',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 cursor: 'pointer',
+                marginBottom: '2rem',
               }}
             >
               나중에 하기
             </button>
+
+            {/* Footer */}
+            <Footer />
           </div>
         </div>
       </div>

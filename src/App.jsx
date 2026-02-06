@@ -16,6 +16,9 @@ import { supabase } from './supabaseClient';
 import SubscriptionModal from './components/SubscriptionModal';
 import SubscriptionBadge from './components/SubscriptionBadge';
 import * as PortOne from '@portone/browser-sdk/v2';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
+import RefundPage from './pages/RefundPage';
 
 // Constants
 const GEMINI_MODEL = "gemini-2.0-flash";
@@ -32,6 +35,9 @@ const App = () => {
   const getViewFromPath = () => {
     if (location.pathname.startsWith('/editor/')) return 'editor';
     if (location.pathname === '/settings') return 'settings';
+    if (location.pathname === '/terms') return 'terms';
+    if (location.pathname === '/privacy') return 'privacy';
+    if (location.pathname === '/refund') return 'refund';
     return 'home';
   };
   const view = getViewFromPath();
@@ -52,6 +58,12 @@ const App = () => {
       navigate(`/editor/${sessionId}`);
     } else if (newView === 'settings') {
       navigate('/settings');
+    } else if (newView === 'terms') {
+      navigate('/terms');
+    } else if (newView === 'privacy') {
+      navigate('/privacy');
+    } else if (newView === 'refund') {
+      navigate('/refund');
     }
   }, [navigate]);
 
@@ -1543,45 +1555,282 @@ ${chatSummary}`;
     );
   };
 
-  const LoginView = () => (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-dark)', padding: '2rem' }}>
-      <div className="glass reveal" style={{ width: 'min(440px, 100%)', padding: '3.5rem 2.5rem', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', borderRadius: '32px', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ background: 'var(--naver-green)', width: '64px', height: '64px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', margin: '0 auto 1.5rem', boxShadow: '0 10px 20px rgba(3, 199, 90, 0.2)' }}>
-          <Sparkles size={32} fill="white" />
-        </div>
-        <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '2.4rem', letterSpacing: '-1.5px', marginBottom: '1rem' }}>TalkLog</h1>
-        <p style={{ color: 'var(--text-dim)', fontSize: '1.1rem', lineHeight: '1.6', marginBottom: '2.5rem', fontWeight: '500' }}>
-          기록은 톡로그에게 맡기고<br />
-          당신은 경험에 집중하세요.
-        </p>
-        <button
-          onClick={handleNaverLogin}
-          className="button-hover"
-          style={{
-            width: '100%',
-            backgroundColor: '#03C75A',
-            color: 'white',
-            padding: '1.2rem',
-            borderRadius: '16px',
-            border: 'none',
-            fontWeight: '800',
-            fontSize: '1.05rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '12px',
-            boxShadow: '0 10px 25px rgba(3, 199, 90, 0.2)'
-          }}
-        >
-          <div style={{ width: '22px', height: '22px', backgroundColor: 'white', color: '#03C75A', borderRadius: '4px', fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</div>
-          네이버로 시작하기
-        </button>
-        <div style={{ marginTop: '2rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          AI 기반 자동 블로그 글 생성 도구
+  const LoginView = () => {
+    const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [passwordConfirm, setPasswordConfirm] = useState('');
+    const [authError, setAuthError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    // 이메일 검증
+    const validateEmail = (email) => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    };
+
+    // 비밀번호 강도 검증
+    const validatePassword = (password) => {
+      const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+      return passwordRegex.test(password);
+    };
+
+    // 이메일 로그인
+    const handleEmailLogin = async () => {
+      setAuthError('');
+      setIsLoading(true);
+
+      if (!validateEmail(email)) {
+        setAuthError('올바른 이메일 형식이 아닙니다');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) throw error;
+        setIsLoading(false);
+      } catch (error) {
+        console.error('로그인 에러:', error);
+        if (error.message.includes('Invalid login credentials')) {
+          setAuthError('이메일 또는 비밀번호가 잘못되었습니다');
+        } else {
+          setAuthError(error.message || '로그인에 실패했습니다');
+        }
+        setIsLoading(false);
+      }
+    };
+
+    // 이메일 회원가입
+    const handleEmailSignUp = async () => {
+      setAuthError('');
+      setIsLoading(true);
+
+      if (!validateEmail(email)) {
+        setAuthError('올바른 이메일 형식이 아닙니다');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!validatePassword(password)) {
+        setAuthError('비밀번호는 최소 8자, 영문과 숫자를 포함해야 합니다');
+        setIsLoading(false);
+        return;
+      }
+
+      if (password !== passwordConfirm) {
+        setAuthError('비밀번호가 일치하지 않습니다');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: { username: email.split('@')[0] }
+          }
+        });
+
+        if (error) throw error;
+
+        // profiles 테이블 생성
+        const userId = data.user?.id;
+        if (userId) {
+          await supabase.from('profiles').upsert({
+            id: userId,
+            naver_id: null,
+            username: email.split('@')[0],
+            avatar_url: null,
+            blog_title: null,
+            updated_at: new Date()
+          });
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('회원가입 에러:', error);
+        if (error.message.includes('already registered')) {
+          setAuthError('이미 가입된 이메일입니다');
+        } else {
+          setAuthError(error.message || '회원가입에 실패했습니다');
+        }
+        setIsLoading(false);
+      }
+    };
+
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-dark)', padding: '2rem' }}>
+        <div className="glass reveal" style={{ width: 'min(440px, 100%)', padding: '3.5rem 2.5rem', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', borderRadius: '32px', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ background: 'var(--naver-green)', width: '64px', height: '64px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', margin: '0 auto 1.5rem', boxShadow: '0 10px 20px rgba(3, 199, 90, 0.2)' }}>
+            <Sparkles size={32} fill="white" />
+          </div>
+          <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '2.4rem', letterSpacing: '-1.5px', marginBottom: '1rem' }}>TalkLog</h1>
+          <p style={{ color: 'var(--text-dim)', fontSize: '1.1rem', lineHeight: '1.6', marginBottom: '2.5rem', fontWeight: '500' }}>
+            기록은 톡로그에게 맡기고<br />
+            당신은 경험에 집중하세요.
+          </p>
+
+          {/* 네이버 로그인 버튼 */}
+          <button
+            onClick={handleNaverLogin}
+            className="button-hover"
+            style={{
+              width: '100%',
+              backgroundColor: '#03C75A',
+              color: 'white',
+              padding: '1.2rem',
+              borderRadius: '16px',
+              border: 'none',
+              fontWeight: '800',
+              fontSize: '1.05rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              boxShadow: '0 10px 25px rgba(3, 199, 90, 0.2)'
+            }}
+          >
+            <div style={{ width: '22px', height: '22px', backgroundColor: 'white', color: '#03C75A', borderRadius: '4px', fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</div>
+            네이버로 시작하기
+          </button>
+
+          {/* 구분선 */}
+          <div style={{ display: 'flex', alignItems: 'center', margin: '2rem 0 1.5rem', gap: '1rem' }}>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+              또는 이메일로 계속하기
+            </span>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+          </div>
+
+          {/* 이메일 입력 */}
+          <input
+            type="email"
+            placeholder="이메일"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              width: '100%',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '1rem',
+              color: 'white',
+              fontSize: '0.95rem',
+              marginBottom: '0.8rem',
+              outline: 'none'
+            }}
+          />
+
+          {/* 비밀번호 입력 */}
+          <input
+            type="password"
+            placeholder="비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              width: '100%',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '1rem',
+              color: 'white',
+              fontSize: '0.95rem',
+              marginBottom: authMode === 'signup' ? '0.8rem' : '0',
+              outline: 'none'
+            }}
+          />
+
+          {/* 회원가입 모드: 비밀번호 확인 */}
+          {authMode === 'signup' && (
+            <input
+              type="password"
+              placeholder="비밀번호 확인"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '1rem',
+                color: 'white',
+                fontSize: '0.95rem',
+                outline: 'none'
+              }}
+            />
+          )}
+
+          {/* 에러 메시지 */}
+          {authError && (
+            <p style={{
+              color: '#ef4444',
+              fontSize: '0.8rem',
+              marginTop: '0.8rem',
+              textAlign: 'left'
+            }}>
+              {authError}
+            </p>
+          )}
+
+          {/* 로그인/회원가입 버튼 */}
+          <button
+            onClick={authMode === 'login' ? handleEmailLogin : handleEmailSignUp}
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              background: 'rgba(255, 255, 255, 0.1)',
+              color: 'white',
+              padding: '1rem',
+              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              fontWeight: '700',
+              fontSize: '0.95rem',
+              marginTop: '1rem',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.6 : 1
+            }}
+          >
+            {isLoading
+              ? (authMode === 'login' ? '로그인 중...' : '회원가입 중...')
+              : (authMode === 'login' ? '로그인' : '회원가입')}
+          </button>
+
+          {/* 모드 전환 */}
+          <p style={{
+            marginTop: '1.5rem',
+            fontSize: '0.85rem',
+            color: 'var(--text-dim)'
+          }}>
+            {authMode === 'login'
+              ? '계정이 없으신가요? '
+              : '이미 계정이 있으신가요? '}
+            <span
+              onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+              style={{
+                color: 'var(--naver-green)',
+                cursor: 'pointer',
+                fontWeight: '700'
+              }}
+            >
+              {authMode === 'login' ? '회원가입' : '로그인'}
+            </span>
+          </p>
+
+          <div style={{ marginTop: '2rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            AI 기반 자동 블로그 글 생성 도구
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const SettingsView = () => (
     <div className="reveal" style={{ padding: '2rem 1.5rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1822,7 +2071,7 @@ ${chatSummary}`;
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
           isSelectMode={isSelectMode} setIsSelectMode={setIsSelectMode}
           deleteSessionFromSupabase={deleteSessionFromSupabase}
-        /> : view === 'settings' ? <SettingsView /> : (
+        /> : view === 'settings' ? <SettingsView /> : view === 'terms' ? <TermsPage /> : view === 'privacy' ? <PrivacyPage /> : view === 'refund' ? <RefundPage /> : (
           <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
             {/* Fixed Tab Container */}
             <div
