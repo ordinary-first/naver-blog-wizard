@@ -2502,7 +2502,7 @@ ${chatSummary}`;
                 totalAmount: paymentData.amount || 2000,
                 currency: 'KRW',
                 channelKey: import.meta.env.VITE_PORTONE_CHANNEL_KEY || '',
-                payMethod: 'EASY_PAY', // Allow easy pay options (KakaoPay, Toss, Naver, etc.)
+                payMethod: 'CARD',
                 customer: {
                   fullName: paymentData.customerName || '사용자',
                   email: paymentData.customerEmail || '',
