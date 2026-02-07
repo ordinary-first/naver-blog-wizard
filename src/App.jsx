@@ -2498,20 +2498,19 @@ ${chatSummary}`;
                 throw new Error('결제 정보를 가져오지 못했습니다');
               }
 
-              // Open PortOne payment window
+              // Open PortOne payment window (이니시스 V2 필수 파라미터 준수)
               const response = await PortOne.requestPayment({
                 storeId: paymentData.storeId,
+                channelKey: import.meta.env.VITE_PORTONE_CHANNEL_KEY || '',
                 paymentId: paymentData.paymentId,
                 orderName: paymentData.orderName || '네이버 블로그 위저드 프리미엄',
                 totalAmount: paymentData.amount || 2000,
-                currency: 'KRW',
-                channelKey: import.meta.env.VITE_PORTONE_CHANNEL_KEY || '',
+                currency: 'CURRENCY_KRW',
                 payMethod: 'CARD',
                 customer: {
                   fullName: paymentData.customerName || '사용자',
-                  email: paymentData.customerEmail || '',
-                  phoneNumber,
-                  phoneNumber: '01000000000',
+                  phoneNumber: '010-0000-1234',
+                  email: paymentData.customerEmail || 'user@example.com',
                 },
                 redirectUrl: `${window.location.origin}/payment/complete`,
                 noticeUrls: [
