@@ -2506,6 +2506,7 @@ ${chatSummary}`;
                 customer: {
                   fullName: paymentData.customerName || '사용자',
                   email: paymentData.customerEmail || '',
+                  phoneNumber: '01000000000',
                 },
                 redirectUrl: `${window.location.origin}/payment/complete`,
                 noticeUrls: [
