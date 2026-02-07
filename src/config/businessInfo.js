@@ -6,7 +6,7 @@ export const BUSINESS_INFO = {
   companyName: '톡로그',
   ceoName: '문영조',
   registrationNumber: '822-65-00845',
-  address: '경기도 안산시 상록구 석암면로 143, 4층 401호',
+  address: '경기도 안산시 상록구 석암면로 143',
   phone: '031-571-5973',
   email: 'ordinaryindividuality@gmail.com',
 
