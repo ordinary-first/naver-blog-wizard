@@ -2498,6 +2498,14 @@ ${chatSummary}`;
                 throw new Error('결제 정보를 가져오지 못했습니다');
               }
 
+              // 휴대폰 번호를 하이픈 형식으로 변환 (01012345678 → 010-1234-5678)
+              const formatPhone = (num) => {
+                const clean = num.replace(/[^0-9]/g, '');
+                if (clean.length === 11) return `${clean.slice(0,3)}-${clean.slice(3,7)}-${clean.slice(7)}`;
+                if (clean.length === 10) return `${clean.slice(0,3)}-${clean.slice(3,6)}-${clean.slice(6)}`;
+                return clean;
+              };
+
               // Open PortOne payment window (이니시스 V2 필수 파라미터 준수)
               const response = await PortOne.requestPayment({
                 storeId: paymentData.storeId,
@@ -2509,7 +2517,7 @@ ${chatSummary}`;
                 payMethod: 'CARD',
                 customer: {
                   fullName: paymentData.customerName || '사용자',
-                  phoneNumber: '010-0000-1234',
+                  phoneNumber: formatPhone(phoneNumber),
                   email: paymentData.customerEmail || 'user@example.com',
                 },
                 redirectUrl: `${window.location.origin}/payment/complete`,
