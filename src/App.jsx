@@ -2100,7 +2100,7 @@ ${chatSummary}`;
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
           isSelectMode={isSelectMode} setIsSelectMode={setIsSelectMode}
           deleteSessionFromSupabase={deleteSessionFromSupabase}
-        /> : view === 'settings' ? {settingsView} : view === 'terms' ? <TermsPage /> : view === 'privacy' ? <PrivacyPage /> : view === 'refund' ? <RefundPage /> : (
+        /> : view === 'settings' ? settingsView : view === 'terms' ? <TermsPage /> : view === 'privacy' ? <PrivacyPage /> : view === 'refund' ? <RefundPage /> : (
           <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
             {/* Fixed Tab Container */}
             <div
