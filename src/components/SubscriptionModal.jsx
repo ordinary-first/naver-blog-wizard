@@ -11,6 +11,7 @@ import Footer from './Footer';
  */
 const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 }) => {
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   if (!isOpen) return null;
 
@@ -184,6 +185,32 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 })
               </div>
             </div>
 
+            {/* Phone Number (required for Inicis V2) */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>
+                휴대폰 번호
+              </label>
+              <input
+                type="tel"
+                inputMode="numeric"
+                placeholder="예: 01012345678"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                이니시스 V2 결제에 필수입니다.
+              </div>
+            </div>
+
             {/* Terms Acceptance */}
             <label
               style={{
@@ -236,26 +263,26 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 })
 
             {/* CTA Button */}
             <button
-              onClick={onSubscribe}
-              disabled={!termsAccepted}
+              onClick={() => onSubscribe(phoneNumber)}
+              disabled={!termsAccepted || !phoneNumber}
               className="button-hover"
               style={{
                 width: '100%',
                 padding: '1.25rem',
                 borderRadius: '16px',
-                background: termsAccepted ? 'var(--naver-green)' : 'rgba(255, 255, 255, 0.1)',
-                color: termsAccepted ? 'white' : 'var(--text-muted)',
+                background: termsAccepted && phoneNumber ? 'var(--naver-green)' : 'rgba(255, 255, 255, 0.1)',
+                color: termsAccepted && phoneNumber ? 'white' : 'var(--text-muted)',
                 fontSize: '1.1rem',
                 fontWeight: '800',
                 border: 'none',
-                cursor: termsAccepted ? 'pointer' : 'not-allowed',
+                cursor: termsAccepted && phoneNumber ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.75rem',
-                boxShadow: termsAccepted ? '0 10px 30px rgba(3, 199, 90, 0.3)' : 'none',
+                boxShadow: termsAccepted && phoneNumber ? '0 10px 30px rgba(3, 199, 90, 0.3)' : 'none',
                 marginBottom: '0.75rem',
-                opacity: termsAccepted ? 1 : 0.5,
+                opacity: termsAccepted && phoneNumber ? 1 : 0.5,
                 transition: 'all 0.3s',
               }}
             >

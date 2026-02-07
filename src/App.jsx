@@ -2067,7 +2067,7 @@ ${chatSummary}`;
           )}
           {naverUser && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
-              <img src={naverUser.profileImage || 'https://via.placeholder.com/20'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
+              <img src={naverUser.profileImage || '/default-avatar.svg'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
               <span className="mobile-hide-text" style={{ fontSize: '0.75rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
               <button
                 onClick={handleNaverLogout}
@@ -2476,13 +2476,17 @@ ${chatSummary}`;
         <SubscriptionModal
           isOpen={showSubscriptionModal}
           onClose={() => setShowSubscriptionModal(false)}
-          onSubscribe={async () => {
+          onSubscribe={async (phoneNumber) => {
             // Check if user is logged in
             if (!isSupabaseReady || !supabaseUserId) {
               alert('결제를 진행하려면 네이버 로그인이 필요합니다.\n로그인 후 다시 시도해주세요.');
               setPendingPayment(true);
               setShowSubscriptionModal(false);
               setView('home'); // This will trigger LoginView since naverUser is null
+              return;
+            }
+            if (!phoneNumber) {
+              alert('휴대폰 번호를 입력해주세요.');
               return;
             }
 
@@ -2506,6 +2510,7 @@ ${chatSummary}`;
                 customer: {
                   fullName: paymentData.customerName || '사용자',
                   email: paymentData.customerEmail || '',
+                  phoneNumber,
                   phoneNumber: '01000000000',
                 },
                 redirectUrl: `${window.location.origin}/payment/complete`,
