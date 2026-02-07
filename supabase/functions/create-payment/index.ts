@@ -20,26 +20,36 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client
-    const supabaseClient = createClient(
+    // Create Supabase admin client (service role for DB operations)
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
-        },
-      }
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Verify user authentication
+    // Extract JWT token from Authorization header
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "");
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "No authorization token provided" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Verify user authentication using the token
     const {
       data: { user },
       error: authError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
+      console.error("Auth error:", authError?.message);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized", details: authError?.message }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -84,7 +94,7 @@ serve(async (req) => {
     }
 
     // Get user profile for customer info
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("username, naver_id")
       .eq("id", userId)
@@ -95,7 +105,7 @@ serve(async (req) => {
     const orderId = `order_${Date.now()}`;
 
     // Store pending transaction in database
-    const { error: insertError } = await supabaseClient
+    const { error: insertError } = await supabaseAdmin
       .from("payment_transactions")
       .insert({
         user_id: userId,
