@@ -1593,6 +1593,17 @@ ${chatSummary}`;
         });
 
         if (error) throw error;
+
+        // 이메일 로그인 사용자도 naverUser 설정 (앱 진입용)
+        const emailUser = {
+          id: data.user.id,
+          nickname: data.user.user_metadata?.nickname || data.user.user_metadata?.username || email.split('@')[0],
+          profileImage: null,
+          blogTitle: `${data.user.user_metadata?.nickname || email.split('@')[0]}님의 블로그`
+        };
+        setNaverUser(emailUser);
+        localStorage.setItem('naver_user', JSON.stringify(emailUser));
+
         setIsLoading(false);
       } catch (error) {
         console.error('로그인 에러:', error);
@@ -1651,6 +1662,16 @@ ${chatSummary}`;
             blog_title: null,
             updated_at: new Date()
           });
+
+          // 회원가입 사용자도 naverUser 설정 (앱 진입용)
+          const emailUser = {
+            id: userId,
+            nickname: email.split('@')[0],
+            profileImage: null,
+            blogTitle: `${email.split('@')[0]}님의 블로그`
+          };
+          setNaverUser(emailUser);
+          localStorage.setItem('naver_user', JSON.stringify(emailUser));
         }
 
         setIsLoading(false);
@@ -1996,7 +2017,7 @@ ${chatSummary}`;
     </div>
   );
 
-  if (!naverUser) return <LoginView />;
+  if (!naverUser && !isSupabaseReady) return <LoginView />;
 
   return (
     <div className="app-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-dark)' }}>
