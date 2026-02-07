@@ -95,6 +95,7 @@ const App = () => {
   const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_SEARCH_CLIENT_ID || 'dkky2C4u82iO24wfSQ1J';
   const NAVER_CLIENT_SECRET = import.meta.env.VITE_NAVER_SEARCH_CLIENT_SECRET || 'Kz8Iw7_Cqc';
   const [naverUser, setNaverUser] = useState(null); // { nickname, blogTitle, profileImage, etc. }
+  const [isAuthChecking, setIsAuthChecking] = useState(true); // 초기 인증 상태 확인 중
 
   // Home View State
   const [sessionTab, setSessionTab] = useState('active');
@@ -347,6 +348,10 @@ const App = () => {
 
     // Sessions are loaded from Supabase after login (see useEffect above)
     // Initial empty state - will be populated after Supabase fetch
+
+    // 초기 인증 상태 확인 완료 (localStorage 체크 후 약간의 딜레이로 Supabase 세션 복원 대기)
+    const timer = setTimeout(() => setIsAuthChecking(false), 300);
+    return () => clearTimeout(timer);
   }, []);
 
   // Apply theme to body
@@ -2016,6 +2021,9 @@ ${chatSummary}`;
       </div>
     </div>
   );
+
+  // 초기 인증 체크 중에는 빈 화면 (깜빡임 방지)
+  if (isAuthChecking) return <div style={{ height: '100vh', backgroundColor: 'var(--bg-dark)' }} />;
 
   if (!naverUser && !isSupabaseReady) return <LoginView />;
 
