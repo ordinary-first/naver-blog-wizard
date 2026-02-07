@@ -1858,7 +1858,7 @@ ${chatSummary}`;
     );
   };
 
-  const SettingsView = () => (
+  const settingsView = (
     <div className="reveal" style={{ padding: '2rem 1.5rem', height: '100%', overflowY: 'auto', paddingBottom: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ width: '100%', maxWidth: '600px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem' }}>
@@ -2100,7 +2100,7 @@ ${chatSummary}`;
           setContextMenu={setContextMenu} toggleRepresentative={toggleRepresentative}
           isSelectMode={isSelectMode} setIsSelectMode={setIsSelectMode}
           deleteSessionFromSupabase={deleteSessionFromSupabase}
-        /> : view === 'settings' ? <SettingsView /> : view === 'terms' ? <TermsPage /> : view === 'privacy' ? <PrivacyPage /> : view === 'refund' ? <RefundPage /> : (
+        /> : view === 'settings' ? {settingsView} : view === 'terms' ? <TermsPage /> : view === 'privacy' ? <PrivacyPage /> : view === 'refund' ? <RefundPage /> : (
           <div className="reveal" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
             {/* Fixed Tab Container */}
             <div
