@@ -18,46 +18,59 @@ serve(async (req) => {
       throw new Error('SUPABASE_DB_URL environment variable not found')
     }
 
-    // Migration SQL - matches 001_add_subscription_columns.sql
+    // Migration SQL - create payment_transactions table
     const migrationSQL = `
 BEGIN;
 
--- Add subscription columns to profiles table
-ALTER TABLE public.profiles
-ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free',
-ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active',
-ADD COLUMN IF NOT EXISTS subscription_start_date TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS subscription_end_date TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS blog_generation_count INTEGER DEFAULT 0,
-ADD COLUMN IF NOT EXISTS payment_provider TEXT,
-ADD COLUMN IF NOT EXISTS payment_id TEXT,
-ADD COLUMN IF NOT EXISTS last_payment_date TIMESTAMPTZ;
+-- Create payment_transactions table if not exists
+CREATE TABLE IF NOT EXISTS public.payment_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  payment_provider TEXT NOT NULL,
+  payment_id TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  currency TEXT DEFAULT 'KRW',
+  status TEXT NOT NULL,
+  transaction_type TEXT NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Add check constraints for valid values
-ALTER TABLE public.profiles
-ADD CONSTRAINT check_subscription_tier
-  CHECK (subscription_tier IN ('free', 'premium')) NOT VALID;
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_user_id
+  ON public.payment_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_payment_id
+  ON public.payment_transactions(payment_id);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_status
+  ON public.payment_transactions(status);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_created_at
+  ON public.payment_transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_user_status
+  ON public.payment_transactions(user_id, status);
 
-ALTER TABLE public.profiles
-ADD CONSTRAINT check_subscription_status
-  CHECK (subscription_status IN ('active', 'canceled', 'expired')) NOT VALID;
+-- Enable RLS
+ALTER TABLE public.payment_transactions ENABLE ROW LEVEL SECURITY;
 
--- Validate constraints (allows existing rows that don't match)
-ALTER TABLE public.profiles VALIDATE CONSTRAINT check_subscription_tier;
-ALTER TABLE public.profiles VALIDATE CONSTRAINT check_subscription_status;
+-- RLS policies (drop first if exist to avoid errors)
+DROP POLICY IF EXISTS "Users can view own transactions" ON public.payment_transactions;
+CREATE POLICY "Users can view own transactions"
+  ON public.payment_transactions
+  FOR SELECT
+  USING (auth.uid() = user_id);
 
--- Create indexes for faster queries
-CREATE INDEX IF NOT EXISTS idx_profiles_subscription_tier
-  ON public.profiles(subscription_tier);
+DROP POLICY IF EXISTS "Authenticated users can create transactions" ON public.payment_transactions;
+CREATE POLICY "Authenticated users can create transactions"
+  ON public.payment_transactions
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
 
-CREATE INDEX IF NOT EXISTS idx_profiles_subscription_status
-  ON public.profiles(subscription_status);
-
-CREATE INDEX IF NOT EXISTS idx_profiles_subscription_start_date
-  ON public.profiles(subscription_start_date);
-
-CREATE INDEX IF NOT EXISTS idx_profiles_payment_provider
-  ON public.profiles(payment_provider);
+DROP POLICY IF EXISTS "Service role can update transactions" ON public.payment_transactions;
+CREATE POLICY "Service role can update transactions"
+  ON public.payment_transactions
+  FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
 
 COMMIT;
     `
@@ -75,7 +88,7 @@ COMMIT;
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Migration 001_add_subscription_columns executed successfully',
+          message: 'Migration 002_create_payment_transactions executed successfully',
           result: {
             rowCount: result.rowCount,
             command: result.command
