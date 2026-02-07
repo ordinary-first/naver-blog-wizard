@@ -2493,9 +2493,10 @@ ${chatSummary}`;
             try {
               // Get payment data from backend
               const paymentData = await initiatePayment('premium');
+              console.log('Payment data from server:', JSON.stringify(paymentData));
 
               if (!paymentData || !paymentData.storeId || !paymentData.paymentId) {
-                throw new Error('결제 정보를 가져오지 못했습니다');
+                throw new Error('결제 정보를 가져오지 못했습니다: ' + JSON.stringify(paymentData));
               }
 
               // 휴대폰 번호를 하이픈 형식으로 변환 (01012345678 → 010-1234-5678)
@@ -2506,8 +2507,7 @@ ${chatSummary}`;
                 return clean;
               };
 
-              // Open PortOne payment window (이니시스 V2 필수 파라미터 준수)
-              const response = await PortOne.requestPayment({
+              const paymentParams = {
                 storeId: paymentData.storeId,
                 channelKey: import.meta.env.VITE_PORTONE_CHANNEL_KEY || '',
                 paymentId: paymentData.paymentId,
@@ -2520,22 +2520,23 @@ ${chatSummary}`;
                   phoneNumber: formatPhone(phoneNumber),
                   email: paymentData.customerEmail || 'user@example.com',
                 },
-                redirectUrl: `${window.location.origin}/payment/complete`,
-                noticeUrls: [
-                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payment-webhook`
-                ],
-              });
+              };
+              console.log('PortOne requestPayment params:', JSON.stringify(paymentParams));
+
+              // Open PortOne payment window (이니시스 V2 필수 파라미터 준수)
+              const response = await PortOne.requestPayment(paymentParams);
+              console.log('PortOne response:', JSON.stringify(response));
 
               // Handle payment result
-              if (response.code === 'FAILURE_TYPE_PG') {
-                alert(`결제 실패: ${response.message}`);
+              if (!response) {
+                alert('결제가 취소되었습니다.');
               } else if (response.code) {
-                alert(`결제 중 오류가 발생했습니다: ${response.message}`);
+                console.error('Payment failed:', response.code, response.message);
+                alert(`결제 실패: ${response.message || response.code}`);
               } else {
                 // Payment initiated successfully
-                // Close modal and wait for webhook to update subscription
                 setShowSubscriptionModal(false);
-                alert('결제가 진행 중입니다. 완료되면 프리미엄이 활성화됩니다.');
+                alert('결제가 완료되었습니다! 프리미엄이 활성화됩니다.');
 
                 // Refresh subscription status after a delay
                 setTimeout(async () => {
@@ -2544,7 +2545,7 @@ ${chatSummary}`;
               }
             } catch (error) {
               console.error('Payment error:', error);
-              alert('결제 시작에 실패했습니다: ' + error.message);
+              alert('결제 오류: ' + (error?.message || String(error)));
             }
           }}
           remainingCount={subscriptionData?.remaining || 0}
