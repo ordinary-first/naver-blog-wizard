@@ -96,7 +96,7 @@ const SubscriptionManagement = ({ subscriptionData, onCancel }) => {
           >
             {isPremium
               ? '무제한으로 블로그 위저드를 사용하고 계세요'
-              : '매월 30회까지 무료로 사용 가능합니다'}
+              : '매월 10회까지 무료로 사용 가능합니다'}
           </p>
         </div>
       </div>

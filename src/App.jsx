@@ -2128,7 +2128,7 @@ ${chatSummary}`;
               <SubscriptionBadge
                 tier={subscriptionData.tier}
                 count={subscriptionData.blogCount}
-                limit={30}
+                limit={10}
               />
             </div>
           )}

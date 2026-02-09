@@ -133,7 +133,7 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 })
                 lineHeight: 1.6,
               }}
             >
-              무료 {remainingCount ? `${30 - remainingCount}회` : '30회'}를 모두 사용하셨어요. 이제 무제한으로 이어가세요!
+              프리미엄으로 업그레이드하고 무제한으로 이용하세요!
             </p>
 
             {/* Service Description */}

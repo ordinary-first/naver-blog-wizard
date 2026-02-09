@@ -9,7 +9,7 @@ import { Crown, Sparkles } from 'lucide-react';
  * @param {string} size - 'sm' | 'md' | 'lg'
  * @param {boolean} minimal - Show minimal version (icon only)
  */
-const SubscriptionBadge = ({ tier = 'free', count = 0, limit = 30, size = 'md', minimal = false }) => {
+const SubscriptionBadge = ({ tier = 'free', count = 0, limit = 10, size = 'md', minimal = false }) => {
   const isPremium = tier === 'premium';
   const remaining = limit - count;
   const percentage = (count / limit) * 100;

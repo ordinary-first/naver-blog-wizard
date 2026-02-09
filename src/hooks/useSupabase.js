@@ -475,7 +475,7 @@ export const useSupabase = (naverUser) => {
             }
 
             const tier = profile.subscription_tier || 'free';
-            const limit = tier === 'free' ? 30 : Infinity;
+            const limit = tier === 'free' ? 10 : Infinity;
 
             return {
                 tier,
