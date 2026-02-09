@@ -49,7 +49,9 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 })
           style={{
             padding: '2.5rem',
             position: 'relative',
-            overflow: 'hidden',
+            overflowX: 'hidden',
+            overflowY: 'auto',
+            maxHeight: '85vh',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
           }}
         >
