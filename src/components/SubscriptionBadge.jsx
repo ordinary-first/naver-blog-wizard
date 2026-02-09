@@ -5,7 +5,7 @@ import { Crown, Sparkles } from 'lucide-react';
  * SubscriptionBadge - Compact tier indicator badge
  * @param {string} tier - 'free' | 'premium'
  * @param {number} count - Current usage count (for free tier)
- * @param {number} limit - Usage limit (default 30)
+ * @param {number} limit - Usage limit (default 10)
  * @param {string} size - 'sm' | 'md' | 'lg'
  * @param {boolean} minimal - Show minimal version (icon only)
  */
@@ -51,7 +51,7 @@ const SubscriptionBadge = ({ tier = 'free', count = 0, limit = 10, size = 'md', 
 
     // Free tier: Color based on remaining count
     if (remaining <= 1) {
-      // 29-30 사용 (0-1 남음): 빨간색 (긴급)
+      // 9-10 사용 (0-1 남음): 빨간색 (긴급)
       return {
         background: 'rgba(239, 68, 68, 0.12)',
         border: '2px solid rgba(239, 68, 68, 0.4)',
@@ -59,7 +59,7 @@ const SubscriptionBadge = ({ tier = 'free', count = 0, limit = 10, size = 'md', 
         shadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
       };
     } else if (remaining <= 4) {
-      // 26-28 사용 (2-4 남음): 주황색 (경고)
+      // 7-8 사용 (2-3 남음): 주황색 (경고)
       return {
         background: 'rgba(251, 146, 60, 0.12)',
         border: '2px solid rgba(251, 146, 60, 0.4)',
@@ -67,7 +67,7 @@ const SubscriptionBadge = ({ tier = 'free', count = 0, limit = 10, size = 'md', 
         shadow: '0 4px 12px rgba(251, 146, 60, 0.2)',
       };
     } else {
-      // 0-25 사용 (5-30 남음): 초록색 (정상)
+      // 0-6 사용 (4-10 남음): 초록색 (정상)
       return {
         background: 'rgba(3, 199, 90, 0.1)',
         border: '2px solid rgba(3, 199, 90, 0.3)',

@@ -7,7 +7,7 @@ import Footer from './Footer';
  * @param {boolean} isOpen - Controls modal visibility
  * @param {function} onClose - Handler for closing modal
  * @param {function} onSubscribe - Handler for subscription action
- * @param {number} remainingCount - Remaining free uses (0-30)
+ * @param {number} remainingCount - Remaining free uses (0-10)
  */
 const SubscriptionModal = ({ isOpen, onClose, onSubscribe, remainingCount = 0 }) => {
   const [termsAccepted, setTermsAccepted] = useState(false);
