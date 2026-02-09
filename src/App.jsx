@@ -1868,6 +1868,48 @@ ${chatSummary}`;
           <h1 style={{ fontSize: '1.3rem', fontWeight: '900', margin: 0 }}>서비스 설정</h1>
         </div>
 
+        {/* Profile Section */}
+        {naverUser && (
+          <section className="glass" style={{ padding: '1.2rem', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <img
+                src={naverUser.profileImage || '/default-avatar.svg'}
+                style={{ width: '48px', height: '48px', borderRadius: '50%', border: '2px solid var(--naver-green)' }}
+                alt="profile"
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>{naverUser.nickname}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.15rem' }}>{naverUser.blogTitle}</div>
+              </div>
+              {subscriptionData?.tier === 'premium' ? (
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--naver-green)', background: 'rgba(3,199,90,0.1)', padding: '4px 10px', borderRadius: '100px' }}>프리미엄</span>
+              ) : (
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '100px' }}>무료</span>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Upgrade Section */}
+        {subscriptionData?.tier !== 'premium' && (
+          <section
+            className="glass button-hover"
+            onClick={() => setShowSubscriptionModal(true)}
+            style={{ padding: '1.2rem', borderRadius: '18px', border: '1px solid rgba(3,199,90,0.2)', marginBottom: '1rem', cursor: 'pointer', background: 'rgba(3,199,90,0.03)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Sparkles size={16} color="var(--naver-green)" />
+                <h2 style={{ fontSize: '1rem', fontWeight: '800', margin: 0 }}>프리미엄 업그레이드</h2>
+              </div>
+              <ChevronDown size={16} color="var(--naver-green)" style={{ transform: 'rotate(-90deg)' }} />
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.6rem', lineHeight: '1.4' }}>
+              월 2,000원으로 무제한 블로그 글 생성, 이미지 업로드 등 모든 기능을 이용하세요.
+            </p>
+          </section>
+        )}
+
         {/* Theme Toggle Section */}
         <section className="glass" style={{ padding: '1.2rem', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2018,6 +2060,31 @@ ${chatSummary}`;
             설정 저장하기
           </button>
         </div>
+
+        {/* Logout */}
+        <button
+          className="button-hover"
+          onClick={handleNaverLogout}
+          style={{
+            width: '100%',
+            marginTop: '1rem',
+            padding: '0.9rem',
+            background: 'transparent',
+            color: '#ff6b6b',
+            fontWeight: '700',
+            borderRadius: '14px',
+            border: '1px solid rgba(255,107,107,0.2)',
+            fontSize: '0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            cursor: 'pointer',
+          }}
+        >
+          <LogOut size={16} />
+          로그아웃
+        </button>
       </div>
     </div>
   );
@@ -2069,13 +2136,6 @@ ${chatSummary}`;
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
               <img src={naverUser.profileImage || '/default-avatar.svg'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
               <span className="mobile-hide-text" style={{ fontSize: '0.75rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
-              <button
-                onClick={handleNaverLogout}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: '0.65rem', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', gap: '2px' }}
-                title="로그아웃"
-              >
-                <LogOut size={12} /> <span className="mobile-hide-text">로그아웃</span>
-              </button>
             </div>
           )}
           {view !== 'home' && (
