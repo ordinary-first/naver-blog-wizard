@@ -2132,12 +2132,6 @@ ${chatSummary}`;
               />
             </div>
           )}
-          {naverUser && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
-              <img src={naverUser.profileImage || '/default-avatar.svg'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="profile" />
-              <span className="mobile-hide-text" style={{ fontSize: '0.75rem', color: 'white', fontWeight: 'bold' }}>{naverUser.nickname}</span>
-            </div>
-          )}
           {view !== 'home' && (
             <button className="glass button-hover" onClick={() => setView('home')} style={{ padding: '0.35rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'white', borderRadius: '10px' }}>
               <ChevronLeft size={14} /> <span className="mobile-hide-text" style={{ fontSize: '0.75rem' }}>홈으로</span>
