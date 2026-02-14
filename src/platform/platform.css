@@ -1,0 +1,254 @@
+.platform-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 500px at 0% -5%, rgba(255, 133, 80, 0.16), transparent),
+    radial-gradient(800px 360px at 100% 0%, rgba(58, 172, 110, 0.14), transparent),
+    #0d1319;
+  color: #f3f7f7;
+}
+
+.platform-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  background: rgba(11, 16, 23, 0.82);
+}
+
+.platform-topbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.platform-brand {
+  color: #f3f7f7;
+  font-size: 18px;
+  font-weight: 800;
+  text-decoration: none;
+  letter-spacing: 0.2px;
+}
+
+.platform-nav {
+  display: flex;
+  gap: 12px;
+}
+
+.platform-nav a {
+  color: #a4b2bc;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.platform-nav a.active {
+  color: #f3f7f7;
+}
+
+.platform-user-area {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #a4b2bc;
+}
+
+.platform-user-area a {
+  color: #a4b2bc;
+  text-decoration: none;
+}
+
+.platform-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 18px 54px;
+}
+
+.platform-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.platform-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.platform-page-header h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.platform-page-header p {
+  margin: 8px 0 0;
+  color: #a4b2bc;
+}
+
+.platform-btn {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(20, 30, 36, 0.72);
+  color: #eff7f7;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.platform-btn-primary {
+  border-color: #4ed19a;
+  background: linear-gradient(135deg, #169b63, #4ed19a);
+  color: #082113;
+}
+
+.platform-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #8ea1ae;
+}
+
+.platform-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  color: #eff7f7;
+  font-size: 14px;
+  background: transparent;
+}
+
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px;
+}
+
+.platform-card {
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(18, 26, 34, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.platform-card-image {
+  width: 100%;
+  height: 145px;
+  object-fit: cover;
+  display: block;
+}
+
+.platform-card-image-fallback {
+  background: linear-gradient(135deg, #1c4a3b, #143547);
+}
+
+.platform-card-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.platform-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #95a6af;
+}
+
+.platform-card-meta a {
+  text-decoration: none;
+  color: #95a6af;
+}
+
+.platform-card h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.platform-card h2 a {
+  text-decoration: none;
+  color: #eff7f7;
+}
+
+.platform-card p {
+  margin: 0;
+  color: #b2c0c9;
+  font-size: 14px;
+}
+
+.platform-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.platform-list-item {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(18, 26, 34, 0.8);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.platform-list-item h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.platform-list-item h2 a {
+  text-decoration: none;
+  color: #f3f7f7;
+}
+
+.platform-list-item p {
+  margin: 8px 0;
+  color: #a9b8c2;
+}
+
+.platform-link {
+  color: #76dcae;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.platform-inline-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.platform-pill-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  color: #93a7b3;
+  font-size: 12px;
+}
+
+.platform-pill {
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.platform-pill.is-live {
+  background: rgba(78, 209, 154, 0.2);
+  color: #7be8b8;
+}

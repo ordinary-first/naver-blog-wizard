@@ -1,0 +1,132 @@
+.platform-post {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.platform-post-header h1 {
+  margin: 6px 0 10px;
+  font-size: 42px;
+}
+
+.platform-post-meta {
+  display: flex;
+  gap: 12px;
+  color: #96a8b2;
+  font-size: 13px;
+}
+
+.platform-post-meta a {
+  color: #96a8b2;
+  text-decoration: none;
+}
+
+.platform-post-summary {
+  color: #b2c1ca;
+}
+
+.platform-post-cover {
+  width: 100%;
+  max-height: 380px;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+.platform-post-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.platform-post-content p {
+  margin: 0;
+  color: #dbe4e9;
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+.platform-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.platform-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: #a7b8c2;
+}
+
+.platform-editor input,
+.platform-editor textarea {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(14, 21, 28, 0.9);
+  color: #f3f7f7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.platform-editor textarea {
+  resize: vertical;
+}
+
+.platform-editor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.platform-empty,
+.platform-error {
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 14px;
+}
+
+.platform-empty {
+  background: rgba(255, 255, 255, 0.06);
+  color: #aec0cb;
+}
+
+.platform-empty a {
+  color: #7fe7b9;
+}
+
+.platform-error {
+  background: rgba(255, 83, 83, 0.15);
+  color: #ffc2c2;
+}
+
+@media (max-width: 900px) {
+  .platform-topbar-inner {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .platform-user-area {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .platform-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .platform-post-header h1 {
+    font-size: 30px;
+  }
+
+  .platform-list-item {
+    flex-direction: column;
+  }
+
+  .platform-pill-wrap {
+    align-items: flex-start;
+  }
+}
+
