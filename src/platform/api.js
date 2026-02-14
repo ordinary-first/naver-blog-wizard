@@ -166,3 +166,33 @@ export const upsertPost = async ({
   return data;
 };
 
+export const updatePostStatus = async ({ postId, authorId, status }) => {
+  const normalizedStatus = status === 'published' ? 'published' : 'draft';
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .update({
+      status: normalizedStatus,
+      published_at: normalizedStatus === 'published' ? now : null,
+      updated_at: now,
+    })
+    .eq('id', postId)
+    .eq('author_id', authorId)
+    .select(BLOG_POST_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deletePost = async ({ postId, authorId }) => {
+  const { error } = await supabase
+    .from('blog_posts')
+    .delete()
+    .eq('id', postId)
+    .eq('author_id', authorId);
+
+  if (error) throw error;
+  return true;
+};

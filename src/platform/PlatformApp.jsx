@@ -9,7 +9,7 @@ import { EditorPage } from './pages/EditorPage';
 import './platform.css';
 import './platform-content.css';
 
-const PlatformShell = ({ currentUser }) => {
+const PlatformShell = ({ currentUser, onSignOut }) => {
   return (
     <div className="platform-shell">
       <header className="platform-topbar">
@@ -24,9 +24,14 @@ const PlatformShell = ({ currentUser }) => {
           </nav>
           <div className="platform-user-area">
             {currentUser?.email ? (
-              <span>{currentUser.email}</span>
+              <>
+                <span>{currentUser.email}</span>
+                <button className="platform-small-btn" onClick={onSignOut} type="button">
+                  로그아웃
+                </button>
+              </>
             ) : (
-              <a href="/">네이버 로그인</a>
+              <a href="/">로그인</a>
             )}
             <a href="/">레거시 스튜디오</a>
           </div>
@@ -62,11 +67,16 @@ export const PlatformApp = () => {
     };
   }, []);
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+  };
+
   return (
     <Routes>
-      <Route element={<PlatformShell currentUser={currentUser} />}>
+      <Route element={<PlatformShell currentUser={currentUser} onSignOut={handleSignOut} />}>
         <Route element={<FeedPage currentUser={currentUser} />} index />
-        <Route element={<PostDetailPage />} path="post/:slug" />
+        <Route element={<PostDetailPage currentUser={currentUser} />} path="post/:slug" />
         <Route element={<AuthorPage />} path="author/:username" />
         <Route element={<MyPostsPage currentUser={currentUser} />} path="me" />
         <Route element={<EditorPage currentUser={currentUser} />} path="write" />
@@ -75,3 +85,4 @@ export const PlatformApp = () => {
     </Routes>
   );
 };
+

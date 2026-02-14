@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { fetchPostBySlug } from '../api';
 import { formatDate } from '../utils';
 
-export const PostDetailPage = () => {
+export const PostDetailPage = ({ currentUser }) => {
   const { slug } = useParams();
   const [loading, setLoading] = useState(true);
   const [post, setPost] = useState(null);
@@ -17,7 +17,7 @@ export const PostDetailPage = () => {
       try {
         const data = await fetchPostBySlug(slug);
         setPost(data);
-      } catch (error) {
+      } catch (_error) {
         setErrorMessage('게시글을 불러오지 못했습니다.');
       } finally {
         setLoading(false);
@@ -31,6 +31,8 @@ export const PostDetailPage = () => {
     if (!post?.content) return [];
     return post.content.split('\n').map((line) => line.trim()).filter(Boolean);
   }, [post]);
+
+  const isAuthor = Boolean(currentUser?.id && currentUser.id === post?.author_id);
 
   if (loading) return <section className="platform-empty">게시글을 불러오는 중...</section>;
   if (errorMessage) return <section className="platform-error">{errorMessage}</section>;
@@ -48,8 +50,19 @@ export const PostDetailPage = () => {
             @{post.author?.username || 'unknown'}
           </Link>
           <span>{formatDate(post.published_at || post.created_at)}</span>
+          {post.status === 'draft' && <span>초안</span>}
         </div>
         {post.summary && <p className="platform-post-summary">{post.summary}</p>}
+        {isAuthor && (
+          <div className="platform-inline-actions">
+            <Link className="platform-link" to={`/platform/edit/${post.id}`}>
+              이 글 수정
+            </Link>
+            <Link className="platform-link" to="/platform/me">
+              내 글 관리
+            </Link>
+          </div>
+        )}
       </header>
 
       {post.cover_image_url && (

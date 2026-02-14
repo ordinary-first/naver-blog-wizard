@@ -16,7 +16,7 @@ export const EditorPage = ({ currentUser }) => {
   const navigate = useNavigate();
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(!!postId);
+  const [loading, setLoading] = useState(Boolean(postId));
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export const EditorPage = ({ currentUser }) => {
           status: data.status || 'draft',
           slug: data.slug || '',
         });
-      } catch (error) {
+      } catch (_error) {
         setErrorMessage('글 정보를 불러오지 못했습니다.');
       } finally {
         setLoading(false);
@@ -57,6 +57,10 @@ export const EditorPage = ({ currentUser }) => {
   const isReadyToSave = useMemo(() => {
     return form.title.trim() && form.content.trim();
   }, [form.title, form.content]);
+
+  const contentLength = useMemo(() => {
+    return form.content.trim().length;
+  }, [form.content]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -80,9 +84,10 @@ export const EditorPage = ({ currentUser }) => {
         coverImageUrl: form.coverImageUrl,
         slug: form.slug,
       });
+
       navigate('/platform/me');
-    } catch (error) {
-      setErrorMessage('저장에 실패했습니다. 제목 중복 여부를 확인해 주세요.');
+    } catch (_error) {
+      setErrorMessage('저장에 실패했습니다. 제목이 비어 있거나 중복인지 확인해 주세요.');
     } finally {
       setSaving(false);
     }
@@ -91,7 +96,7 @@ export const EditorPage = ({ currentUser }) => {
   if (!currentUser?.id) {
     return (
       <section className="platform-empty">
-        글 작성은 로그인 이후 가능합니다. <a href="/">네이버 로그인으로 이동</a>
+        글 작성은 로그인 이후 가능합니다. <a href="/">로그인으로 이동</a>
       </section>
     );
   }
@@ -103,7 +108,7 @@ export const EditorPage = ({ currentUser }) => {
       <header className="platform-page-header">
         <div>
           <h1>{postId ? '글 수정' : '새 글 작성'}</h1>
-          <p>초안 저장 후 검토하고, 공개 상태로 전환하면 피드에 노출됩니다.</p>
+          <p>먼저 초안 저장하고, 검토 후 공개로 전환하세요.</p>
         </div>
         <Link className="platform-btn" to="/platform/me">
           내 글 목록
@@ -116,7 +121,7 @@ export const EditorPage = ({ currentUser }) => {
           <input
             name="title"
             onChange={handleChange}
-            placeholder="글 제목"
+            placeholder="독자가 클릭할 제목"
             value={form.title}
           />
         </label>
@@ -126,7 +131,7 @@ export const EditorPage = ({ currentUser }) => {
           <textarea
             name="summary"
             onChange={handleChange}
-            placeholder="피드에 노출되는 요약"
+            placeholder="피드에서 보일 요약"
             rows={3}
             value={form.summary}
           />
@@ -137,7 +142,7 @@ export const EditorPage = ({ currentUser }) => {
           <input
             name="coverImageUrl"
             onChange={handleChange}
-            placeholder="https://..."
+            placeholder="https://example.com/cover.jpg"
             value={form.coverImageUrl}
           />
         </label>
@@ -152,6 +157,8 @@ export const EditorPage = ({ currentUser }) => {
             value={form.content}
           />
         </label>
+
+        <div className="platform-editor-meta">본문 글자 수: {contentLength}</div>
 
         {errorMessage && <div className="platform-error">{errorMessage}</div>}
 

@@ -18,7 +18,7 @@ export const FeedPage = ({ currentUser }) => {
       try {
         const data = await fetchFeedPosts();
         setPosts(data);
-      } catch (error) {
+      } catch (_error) {
         setErrorMessage('피드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
       } finally {
         setLoading(false);
@@ -45,7 +45,7 @@ export const FeedPage = ({ currentUser }) => {
       <header className="platform-page-header">
         <div>
           <h1>Talklog Feed</h1>
-          <p>채팅 기반 초안을 넘어, 공개 가능한 블로그 글을 쌓아가는 공간입니다.</p>
+          <p>작성자가 공개한 글을 탐색하고, 내 글도 바로 발행할 수 있습니다.</p>
         </div>
         {currentUser ? (
           <Link className="platform-btn platform-btn-primary" to="/platform/write">
@@ -53,7 +53,7 @@ export const FeedPage = ({ currentUser }) => {
           </Link>
         ) : (
           <a className="platform-btn platform-btn-primary" href="/">
-            네이버 로그인 후 작성
+            로그인하고 글 작성
           </a>
         )}
       </header>
@@ -91,7 +91,7 @@ export const FeedPage = ({ currentUser }) => {
               <h2>
                 <Link to={`/platform/post/${post.slug}`}>{post.title}</Link>
               </h2>
-              <p>{post.summary || '요약이 아직 없습니다.'}</p>
+              <p>{post.summary || '요약이 없습니다.'}</p>
             </div>
           </article>
         ))}

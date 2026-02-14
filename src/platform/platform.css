@@ -231,6 +231,28 @@
   gap: 10px;
 }
 
+.platform-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.platform-filter-btn {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(20, 30, 36, 0.55);
+  color: #b9c6ce;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.platform-filter-btn.is-active {
+  background: rgba(78, 209, 154, 0.2);
+  color: #aef3d4;
+  border-color: rgba(78, 209, 154, 0.55);
+}
+
 .platform-pill-wrap {
   display: flex;
   flex-direction: column;
@@ -251,4 +273,24 @@
 .platform-pill.is-live {
   background: rgba(78, 209, 154, 0.2);
   color: #7be8b8;
+}
+
+.platform-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.platform-small-btn {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #dfe8eb;
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.platform-small-btn.is-danger {
+  border-color: rgba(255, 90, 90, 0.5);
+  color: #ffc1c1;
 }

@@ -26,7 +26,7 @@ export const AuthorPage = () => {
         setProfile(profileData);
         const postData = await fetchPostsByAuthor(profileData.id);
         setPosts(postData);
-      } catch (error) {
+      } catch (_error) {
         setErrorMessage('작성자 페이지를 불러오지 못했습니다.');
       } finally {
         setLoading(false);
@@ -40,11 +40,13 @@ export const AuthorPage = () => {
   if (errorMessage) return <section className="platform-error">{errorMessage}</section>;
   if (!profile) return <section className="platform-empty">작성자를 찾을 수 없습니다.</section>;
 
+  const blogTitle = profile.blog_title || `${profile.username}의 블로그`;
+
   return (
     <section className="platform-page">
       <header className="platform-page-header">
         <div>
-          <h1>{profile.blog_title || `${profile.username}의 블로그`}</h1>
+          <h1>{blogTitle}</h1>
           <p>@{profile.username} 님이 공개한 글 모음입니다.</p>
         </div>
         <Link className="platform-btn" to="/platform">
@@ -61,7 +63,7 @@ export const AuthorPage = () => {
               <h2>
                 <Link to={`/platform/post/${post.slug}`}>{post.title}</Link>
               </h2>
-              <p>{post.summary || '요약이 아직 없습니다.'}</p>
+              <p>{post.summary || '요약이 없습니다.'}</p>
             </div>
             <time>{formatDate(post.published_at || post.created_at)}</time>
           </article>

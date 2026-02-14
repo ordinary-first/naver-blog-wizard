@@ -73,6 +73,11 @@
   resize: vertical;
 }
 
+.platform-editor-meta {
+  color: #95a7b2;
+  font-size: 12px;
+}
+
 .platform-editor-actions {
   display: flex;
   gap: 8px;
@@ -129,4 +134,3 @@
     align-items: flex-start;
   }
 }
-
