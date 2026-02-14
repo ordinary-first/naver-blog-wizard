@@ -1,4 +1,4 @@
-// v01.27r12
+// v01.31r01
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -2105,7 +2105,7 @@ ${chatSummary}`;
           <div style={{ background: 'var(--naver-green)', width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Sparkles size={14} fill="white" /></div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
             <h1 className="premium-gradient" style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.5px', margin: 0 }}>TalkLog</h1>
-            <span className="version-badge" style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.30</span>
+            <span className="version-badge" style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600' }}>01.31</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
